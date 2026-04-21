@@ -1,5 +1,8 @@
 # java_converter_with_claude
 
+Java 라고 썼지만 Python 으로 구현 할 예정이다.
+Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
+
 ## AS-IS
 
 | 항목 | 내용 |
