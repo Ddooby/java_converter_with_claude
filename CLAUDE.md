@@ -3,14 +3,16 @@
 ## 프로젝트 개요
 
 EJB(Enterprise Java Beans) 소스를 Spring Framework Java 소스로 자동 변환하는 Python 기반 컨버터.
-Claude API를 활용해 AS-IS / TO-BE 샘플 코드 쌍으로부터 변환 패턴을 학습하고, 이를 바탕으로 신규 EJB 파일을 Spring 코드로 변환한다.
+
+- **패턴 학습** (`analyzer.py`): Claude API를 사용해 AS-IS / TO-BE 샘플 쌍에서 치환 규칙을 추출하고 JSON으로 저장 (일회성)
+- **파일 변환** (`converter.py`): 저장된 패턴 JSON + 내장 변환 규칙으로 코드 변환 처리 (**API 호출 없음**)
 
 ### 기술 스택
 
 | 항목 | 내용 |
 |------|------|
 | 언어 | Python 3.11+ |
-| AI | Claude API (claude-sonnet-4-6) |
+| AI (패턴 학습 전용) | Claude API (claude-sonnet-4-6) |
 | AS-IS | EJB + MiPlatform / Oracle / JEUS 8 / OpenJDK 1.8 |
 | TO-BE | Spring Framework 5.3.27 + Nexacro / Oracle / Tomcat 9.0 / OpenJDK 17 |
 
@@ -29,18 +31,20 @@ java_converter_with_claude/
 ├── converter/                  # 핵심 변환 로직
 │   ├── __init__.py
 │   ├── main.py                 # CLI 진입점
-│   ├── analyzer.py             # 샘플 패턴 분석기
-│   ├── converter.py            # 변환 실행기
-│   ├── claude_client.py        # Claude API 클라이언트
-│   └── utils.py                # 공통 유틸리티
+│   ├── analyzer.py             # 샘플 패턴 분석기 (Claude API 사용)
+│   ├── converter.py            # 변환 실행기 (API 없음, 코드 규칙 기반)
+│   └── claude_client.py        # Claude API 클라이언트 (analyzer 전용)
 │
 ├── samples/                    # 패턴 학습용 샘플 코드
 │   ├── as_is/                  # AS-IS EJB 원본 파일
 │   └── to_be/                  # TO-BE Spring 변환 파일
-│       (파일명은 as_is와 동일하게 맞춰야 함)
+│       ├── XxxDAO.java         # Java 변환본 (as_is와 동일한 파일명)
+│       └── XxxMapper.xml       # MyBatis Mapper XML (DAO 파일인 경우)
 │
 ├── input/                      # 변환할 EJB 소스 파일 (사용자 입력)
 ├── output/                     # 변환된 Spring 소스 파일 (자동 생성)
+│   ├── XxxDAO.java             # 변환된 Java 파일
+│   └── XxxMapper.xml           # 생성된 Mapper XML (DAO 파일인 경우)
 ├── patterns/                   # 학습된 변환 패턴 캐시 (JSON)
 └── tests/
     ├── __init__.py
@@ -55,16 +59,17 @@ java_converter_with_claude/
 1. 샘플 준비
    samples/as_is/  ← AS-IS EJB 파일 배치
    samples/to_be/  ← TO-BE Spring 파일 배치 (같은 파일명)
+                      DAO 파일이면 XxxMapper.xml 도 함께 배치
 
-2. 패턴 학습
+2. 패턴 학습 (Claude API 호출 — 샘플 추가 시에만 실행)
    python -m converter.main learn
 
-3. 변환 실행
+3. 변환 실행 (API 호출 없음)
    input/ ← 변환할 EJB 파일 배치
    python -m converter.main convert
 
 4. 결과 확인
-   output/ ← 변환된 Spring 파일 확인
+   output/ ← 변환된 Java + Mapper XML 파일 확인
 ```
 
 ---
@@ -79,7 +84,7 @@ java_converter_with_claude/
 | `@EJB` | `@Autowired` |
 | `@PersistenceContext` | `@Autowired` (Repository) |
 | `@TransactionAttribute` | `@Transactional` |
-| `@Remote`, `@Local` | 제거 (인터페이스 단순화) |
+| `@Remote`, `@Local` | 제거 |
 
 ### 클래스 구조 변환
 | AS-IS (EJB) | TO-BE (Spring) |
@@ -96,6 +101,36 @@ java_converter_with_claude/
 | `javax.naming.*` | 제거 |
 | `com.tmax..*` (JEUS) | Spring 대응 클래스 |
 
+### DAO 파일 변환 규칙
+
+#### executeQuery → MyBatis
+| AS-IS | TO-BE |
+|-------|-------|
+| `PreparedStatement` + `rs.executeQuery()` | `uxbDAO.select("Namespace.methodId", paramMap)` |
+| SQL 문자열 연결 (`+ param.longValue() +`) | MyBatis 바인딩 (`#{paramName}`) |
+| `while (rs.next()) { ... }` | `for (Map<String, Object> map : listMap) { ... }` |
+| `rs.getString("col")` | `(String) map.get("col")` |
+| `rs.getLong("col")` | `StringUtil.toLong((String) map.get("col"), 0L)` |
+| `rs.getDouble("col")` | `StringUtil.toDouble((String) map.get("col"), 0.0)` |
+| `finally { rs.close(); ps.close(); }` | 제거 |
+
+#### 클래스/메서드 변환
+| AS-IS | TO-BE |
+|-------|-------|
+| `DbWrap.setObject(conn, vo, sql, mode)` | `commonDao.setObject(vo, sql, mode)` |
+| `DbWrap.getObject(conn, Class, sql)` | `commonDao.getObject(Class, sql)` |
+| 메서드 파라미터 `Connection conn` | 제거 |
+| 메서드 파라미터 `UserBean userBean` | 제거 → 메서드 내부에서 `UserInfo.getUserInfo()` 사용 |
+| `STXException` | `Exception` |
+| `new Timestamp(...)` | `new Date(...)` |
+| `StringBuffer` | `StringBuilder` |
+| `Formatter.nullTrim(x)` | `StringUtil.nvl(x, "")` |
+
+#### Mapper XML 생성
+- 파일명: `{클래스명에서 DAO 제거}Mapper.xml` (예: `OTCSADetailDAO` → `OTCSADetailMapper.xml`)
+- namespace: 클래스명에서 DAO 제거 (예: `OTCSADetail`)
+- 한 메서드 내 여러 쿼리: `methodName`, `methodName1`, `methodName2` 순으로 ID 부여
+
 ---
 
 ## 개발 가이드
@@ -104,14 +139,14 @@ java_converter_with_claude/
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
-# .env 에 ANTHROPIC_API_KEY 입력
+# .env 에 ANTHROPIC_API_KEY 입력 (패턴 학습 시에만 필요)
 ```
 
 ### Claude API 사용 원칙
-- 모델: `claude-sonnet-4-6` (기본값)
-- 샘플 코드는 프롬프트에 직접 포함 (few-shot learning)
-- 변환 패턴은 `patterns/` 에 JSON으로 캐싱하여 API 호출 최소화
-- 대용량 파일은 청크(chunk) 단위로 분할 처리
+- `analyzer.py` 전용 — 샘플에서 치환 규칙을 추출할 때만 호출
+- 출력 형식: 코드가 직접 실행 가능한 `import_replacements` / `annotation_replacements` / `text_replacements` JSON
+- 변환 규칙이 바뀌면 샘플을 추가하고 `python -m converter.main learn --relearn` 재실행
+- `converter.py` 는 API를 **호출하지 않음** — 저장된 패턴 JSON + 내장 규칙만 사용
 
 ### 코드 스타일
 - Python 타입 힌트 적극 사용
@@ -124,15 +159,17 @@ cp .env.example .env
 ## 샘플 파일 네이밍 규칙
 
 샘플은 AS-IS / TO-BE 파일명을 **동일하게** 맞춰야 패턴 매핑이 가능하다.
+DAO 파일인 경우 `to_be/` 에 Mapper XML도 함께 배치한다.
 
 ```
 samples/
   as_is/
-    UserService.java       # EJB 원본
-    OrderBean.java
+    UserService.java          # EJB 원본
+    OTCSADetailDAO.java       # EJB DAO 원본
   to_be/
-    UserService.java       # Spring 변환본 (같은 파일명)
-    OrderBean.java
+    UserService.java          # Spring 변환본 (같은 파일명)
+    OTCSADetailDAO.java       # Spring DAO 변환본
+    OTCSADetailMapper.xml     # MyBatis Mapper XML (DAO 파일 시 추가)
 ```
 
 ---
@@ -142,3 +179,4 @@ samples/
 - `.env` 파일은 절대 git에 커밋하지 않음 (`.gitignore` 처리)
 - `ANTHROPIC_API_KEY` 는 반드시 `.env` 또는 환경변수로만 관리
 - `output/` 폴더 내용은 git 추적 제외 권장
+- 변환 결과는 반드시 사람이 검토 — 복잡한 비즈니스 로직은 수동 보완 필요

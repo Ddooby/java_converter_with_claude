@@ -1,5 +1,30 @@
 # java_converter_with_claude
 
+EJB(Enterprise Java Beans) 소스를 Spring Framework Java 소스로 자동 변환하는 Python 기반 컨버터.
+
+- 변환 규칙은 `patterns/learned_patterns.json` 에 정의하며, Claude Code 세션에서 AS-IS / TO-BE 샘플을 분석해 갱신한다.
+- 변환 실행 시 API 호출 없이 저장된 규칙과 내장 코드 로직만으로 처리한다.
+- DAO 파일은 Java 변환본과 MyBatis Mapper XML 두 파일을 함께 생성한다.
+
+## 실행 방법
+
+```bash
+# 의존성 설치 (최초 1회)
+pip install -r requirements.txt
+
+# 변환 실행
+# input/ 폴더에 변환할 .java 파일을 넣은 후 실행
+python -m converter.main convert
+
+# 패턴 파일 확인
+python -m converter.main patterns
+```
+
+> 결과 파일은 `output/` 폴더에 생성됩니다.
+> DAO 파일은 `XxxDAO.java` + `XxxMapper.xml` 두 파일이 함께 생성됩니다.
+
+---
+
 Java 라고 썼지만 Python 으로 구현 할 예정이다.
 Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
 

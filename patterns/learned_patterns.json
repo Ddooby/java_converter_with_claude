@@ -1,0 +1,51 @@
+{
+  "import_replacements": [
+    {"from": "import java.rmi.RemoteException;\n", "to": ""},
+    {"from": "import java.sql.Connection;\n", "to": ""},
+    {"from": "import java.sql.PreparedStatement;\n", "to": ""},
+    {"from": "import java.sql.ResultSet;\n", "to": ""},
+    {"from": "import java.sql.SQLException;\n", "to": ""},
+    {"from": "import java.util.ArrayList;\n", "to": ""},
+    {"from": "import java.util.Collection;\n", "to": ""},
+    {"from": "import java.util.Iterator;\n", "to": ""},
+    {"from": "import org.apache.log4j.Logger;\n", "to": ""},
+    {"from": "import com.stx.som.common.exception.STXException;\n", "to": ""},
+    {"from": "import com.stx.som.common.utility.DbWrap;\n", "to": ""},
+    {"from": "import com.stx.som.common.utility.DateUtil;\n", "to": ""},
+    {"from": "com.stx.som.business.dao.", "to": "com.pan.som.dao."},
+    {"from": "com.stx.som.business.", "to": "com.pan.som."},
+    {"from": "com.stx.som.", "to": "com.pan.som."}
+  ],
+  "import_prefix_removals": [
+    "import com.pan.som.function.",
+    "import com.pan.som.common.dao.PKGenerator",
+    "import com.pan.som.common.vo.erp.EARCustomerVendorVVO"
+  ],
+  "import_additions": [
+    "import kr.co.takeit.dao.UxbDAO;",
+    "import kr.co.takeit.exception.UxbBizException;",
+    "import kr.co.takeit.session.UserInfo;",
+    "import kr.co.takeit.session.user.UserDelegation;",
+    "import kr.co.takeit.util.StringUtil;",
+    "import lombok.RequiredArgsConstructor;",
+    "import lombok.extern.slf4j.Slf4j;",
+    "import org.springframework.stereotype.Repository;",
+    "import org.springframework.transaction.annotation.Transactional;",
+    "import org.springframework.util.ObjectUtils;",
+    "import java.util.*;"
+  ],
+  "annotation_replacements": [
+    {"from": "@Stateless", "to": "@Service"},
+    {"from": "@Stateful", "to": "@Service"},
+    {"from": "@EJB", "to": "@Autowired"},
+    {"from": "@TransactionAttribute", "to": "@Transactional"},
+    {"from": "@Remote", "to": ""},
+    {"from": "@Local", "to": ""}
+  ],
+  "text_replacements": [
+    {"from": "STXException", "to": "Exception"},
+    {"from": "StringBuffer", "to": "StringBuilder"},
+    {"from": "new Timestamp(System.currentTimeMillis())", "to": "new Date(System.currentTimeMillis())"},
+    {"from": "userBean.getUser_id()", "to": "userInfo.getUserId()"}
+  ]
+}

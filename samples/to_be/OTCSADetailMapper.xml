@@ -1,0 +1,2771 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="OTCSADetail">
+    <select id="saSeqMaxNoSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saSeqMaxNoSelect */
+        ]]>
+        SELECT max( nvl( sa_seq , 0 ) ) +1 as max_seq
+          from otc_sa_detail
+         where sa_no = #{saNo}
+    </select>
+
+    <select id="saChartererACSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saChartererACSearch */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'J001' , 'J002' , 'J003' , 'J004' , 'J005' , 'J006' , 'J007' , 'J006' , 'J007' , 'J008' , 'J009' , 'J010' , 'J011' , 'J012' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saChartererACSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saChartererACSearch */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'K001' , 'K002' , 'K003' , 'K004' , 'K005' , 'K006' , 'K007' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saWithholdingSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithholdingSearch */
+        ]]>
+        SELECT A.SA_NO
+             , A.WTH_FLAG
+             , A.WTH_ISSUE_DATE
+             , A.WTH_NAT_CODE
+             , A.WTH_HIRE_BAL_AMT
+             , A.WTH_HIRE_BAL_REDUCE_RATE
+             , NAT_ENG_NAME_FUNC( A.WTH_NAT_CODE ) AS WTH_NAT_NAME
+          FROM OTC_SA_HEAD A
+         WHERE A.SA_NO = #{saNo}
+    </select>
+
+    <select id="saWithholdingSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithholdingSearch */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'M001' , 'M002' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saWithholdingSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithholdingSearch */
+        ]]>
+        SELECT NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) )
+                       FROM OTC_SA_DETAIL
+                      WHERE SA_NO = #{saNo}
+                        AND TRSACT_CODE IN ( 'A001' , 'A006' )
+                      GROUP BY TRSACT_CODE ) , 0 ) ON_HIRE
+                          , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) )
+                                     FROM OTC_SA_DETAIL
+                                    WHERE SA_NO = #{saNo}
+                                      AND TRSACT_CODE IN ( 'A002' , 'A007' )
+                                    GROUP BY TRSACT_CODE ) , 0 ) ON_HIRE_ADD
+                                        , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS BONUS
+                                                   FROM OTC_SA_DETAIL
+                                                  WHERE SA_NO = #{saNo}
+                                                    AND TRSACT_CODE IN ( 'G001' , 'G003' )
+                                                  GROUP BY TRSACT_CODE ) , 0 ) BONUS
+                                                      , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS BONUSADD
+                                                                 FROM OTC_SA_DETAIL
+                                                                WHERE SA_NO = #{saNo}
+                                                                  AND TRSACT_CODE IN ( 'G002' , 'G004' )
+                                                                GROUP BY TRSACT_CODE ) , 0 ) BONUS_ADD
+                                                                    , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS OFFHIRE
+                                                                               FROM OTC_SA_DETAIL
+                                                                              WHERE SA_NO = #{saNo}
+                                                                                AND TRSACT_CODE IN ( 'H001' , 'H009' )
+                                                                              GROUP BY TRSACT_CODE ) , 0 ) OFF_HIRE
+                                                                                  , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS OFFHIREADD
+                                                                                             FROM OTC_SA_DETAIL
+                                                                                            WHERE SA_NO = #{saNo}
+                                                                                              AND TRSACT_CODE IN ( 'H002' , 'H010' )
+                                                                                            GROUP BY TRSACT_CODE ) , 0 ) OFF_HIRE_ADD
+                                                                                                , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS SPEED
+                                                                                                           FROM OTC_SA_DETAIL
+                                                                                                          WHERE SA_NO = #{saNo}
+                                                                                                            AND TRSACT_CODE IN ( 'I003' , 'I071' , 'I004' , 'I072' )
+                                                                                                          GROUP BY TRSACT_CODE ) , 0 ) SPEED
+                                                                                                              , NVL( ( SELECT SUM( NVL( USD_SA_AMT , 0 ) ) AS SPEEDADD
+                                                                                                                         FROM OTC_SA_DETAIL
+                                                                                                                        WHERE SA_NO = #{saNo}
+                                                                                                                          AND TRSACT_CODE IN ( 'I005' , 'I073' )
+                                                                                                                        GROUP BY TRSACT_CODE ) , 0 ) SPEED_CLAIM_ADD
+                                                                                                                         FROM DUAL
+    </select>
+
+    <select id="saOwnerACSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch */
+        ]]>
+        SELECT V.*
+             , ACC_NAME_FUNC( V.BROK_ACC_CODE ) AS BROK_NAME
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code = 'I001'
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saOwnerACSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch1 */
+        ]]>
+        SELECT A.CP_ITEM_NO
+             , A.BLST_BONUS
+             , A.CVE
+             , A.VOY_NO
+             , A.APLY_TIME_FLAG
+             , A.CNTR_NO
+             , A.LAY_CAN_FROM_DATE
+             , A.CNTR_ACC_CODE
+             , A.LAY_CAN_TO_DATE
+             , A.BANK_NAT_CODE
+             , A.OP_TEAM_CODE
+             , A.WTH_TAX_FLAG
+             , A.REDLY_NOTICE1
+             , A.BROK_COMM_RATE
+             , A.REDLY_NOTICE2
+             , A.BROK_COMM_RATE2
+             , A.REDLY_NOTICE3
+             , A.FO_PRICE
+             , A.REDLY_NOTICE4
+             , A.ILOHC
+             , A.REDLY_NOTICE5
+             , A.CHT_IN_OUT_CODE
+             , A.REDLY_NOTICE6
+             , A.NAT_CODE
+             , A.REDLY_NOTICE7
+             , A.BROK_ACC_CODE
+             , A.REDLY_NOTICE8
+             , A.REDLY_NOTICE9
+             , A.VSL_CODE
+             , A.REDLY_NOTICE10
+             , A.DO_PRICE
+             , A.CNTR_TEAM_CODE
+             , A.BROK_ACC_CODE2
+             , A.SYS_CRE_DATE
+             , A.SYS_CRE_USER_ID
+             , A.SYS_UPD_DATE
+             , A.SYS_UPD_USER_ID
+             , A.BANK_NAME
+             , NAT_ENG_NAME_FUNC( A.BANK_NAT_CODE ) AS BANK_NAT_NAME
+             , NAT_ENG_NAME_FUNC( A.NAT_CODE ) AS NAT_NAME
+             , TEAM_INFO_FUNC( A.OP_TEAM_CODE ) AS OP_TEAM_NAME
+             , TEAM_INFO_FUNC( A.CNTR_TEAM_CODE ) AS CNTR_TEAM_NAME
+             , ACC_NAME_FUNC( A.CNTR_ACC_CODE ) AS CNTR_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE ) AS BROK_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE2 ) AS BROK_ACC_NAME2
+             , VSL_NAME_FUNC( A.VSL_CODE ) AS VSL_NAME
+             , Cntr_Name_Func( A.CNTR_NO ) AS CNTR_NAME
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE ) AS BROK_NAT
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE2 ) AS BROK_NAT2
+             , NAT_ENG_NAME_FUNC( ACC_NATION_FUNC( A.CNTR_ACC_CODE ) ) AS ACC_NAT_NAME
+          FROM OTC_CP_ITEM_HEAD A
+         WHERE A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtInOutCode}
+    </select>
+
+    <select id="saOwnerACSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch2 */
+        ]]>
+        SELECT A.CP_ITEM_NO
+             , A.BLST_BONUS
+             , A.CVE
+             , A.VOY_NO
+             , A.APLY_TIME_FLAG
+             , A.CNTR_NO
+             , A.LAY_CAN_FROM_DATE
+             , A.CNTR_ACC_CODE
+             , A.LAY_CAN_TO_DATE
+             , A.BANK_NAT_CODE
+             , A.OP_TEAM_CODE
+             , A.WTH_TAX_FLAG
+             , A.REDLY_NOTICE1
+             , A.BROK_COMM_RATE
+             , A.REDLY_NOTICE2
+             , A.BROK_COMM_RATE2
+             , A.REDLY_NOTICE3
+             , A.FO_PRICE
+             , A.REDLY_NOTICE4
+             , A.ILOHC
+             , A.REDLY_NOTICE5
+             , A.CHT_IN_OUT_CODE
+             , A.REDLY_NOTICE6
+             , A.NAT_CODE
+             , A.REDLY_NOTICE7
+             , A.BROK_ACC_CODE
+             , A.REDLY_NOTICE8
+             , A.REDLY_NOTICE9
+             , A.VSL_CODE
+             , A.REDLY_NOTICE10
+             , A.DO_PRICE
+             , A.CNTR_TEAM_CODE
+             , A.BROK_ACC_CODE2
+             , A.SYS_CRE_DATE
+             , A.SYS_CRE_USER_ID
+             , A.SYS_UPD_DATE
+             , A.SYS_UPD_USER_ID
+             , A.BANK_NAME
+             , NAT_ENG_NAME_FUNC( A.BANK_NAT_CODE ) AS BANK_NAT_NAME
+             , NAT_ENG_NAME_FUNC( A.NAT_CODE ) AS NAT_NAME
+             , TEAM_INFO_FUNC( A.OP_TEAM_CODE ) AS OP_TEAM_NAME
+             , TEAM_INFO_FUNC( A.CNTR_TEAM_CODE ) AS CNTR_TEAM_NAME
+             , ACC_NAME_FUNC( A.CNTR_ACC_CODE ) AS CNTR_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE ) AS BROK_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE2 ) AS BROK_ACC_NAME2
+             , VSL_NAME_FUNC( A.VSL_CODE ) AS VSL_NAME
+             , Cntr_Name_Func( A.CNTR_NO ) AS CNTR_NAME
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE ) AS BROK_NAT
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE2 ) AS BROK_NAT2
+             , NAT_ENG_NAME_FUNC( ACC_NATION_FUNC( A.CNTR_ACC_CODE ) ) AS ACC_NAT_NAME
+          FROM OTC_CP_ITEM_HEAD A
+         WHERE A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtInOutCode}
+    </select>
+
+    <select id="saOwnerACSearch3" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch3 */
+        ]]>
+        SELECT (SELECT SUM (USD_SA_AMT) AS ONHIRE
+                  FROM OTC_SA_DETAIL
+                 WHERE SA_NO = #{saNo} AND TRSACT_CODE = 'A001'
+                 GROUP BY TRSACT_CODE) AS ONHIRE
+          FROM dual
+    </select>
+
+    <select id="saOwnerACSearch4" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch4 */
+        ]]>
+        SELECT ( NVL( ( SELECT SUM ( USD_SA_AMT ) AS ONHIRE
+                         FROM OTC_SA_DETAIL
+                        WHERE SA_NO = #{saNo}
+                          AND TRSACT_CODE IN ( 'A001' , 'A006' )
+                        GROUP BY TRSACT_CODE ) , 0 ) +NVL( ( SELECT SUM ( USD_SA_AMT ) AS OFFHIRE
+                         FROM OTC_SA_DETAIL
+                        WHERE SA_NO = #{saNo}
+                          AND TRSACT_CODE IN ( 'G001' , 'G003' )
+                        GROUP BY TRSACT_CODE ), 0 )
+                    - NVL( ( SELECT SUM ( USD_SA_AMT ) AS OFFHIRE
+                              FROM OTC_SA_DETAIL
+                             WHERE SA_NO = #{saNo}
+                               AND TRSACT_CODE IN ( 'H001' , 'H009' )
+                             GROUP BY TRSACT_CODE ) , 0 ) - NVL( ( SELECT SUM ( USD_SA_AMT ) AS SPEED
+                                                                          FROM OTC_SA_DETAIL
+                                                                         WHERE SA_NO = #{saNo}
+                                                                           AND TRSACT_CODE IN ( 'I003' , 'I071' , 'I004' , 'I072' )
+                                                                         GROUP BY TRSACT_CODE ) , 0 ) +NVL( ( SELECT SUM( USD_SA_AMT ) AS OUTOFHIRE
+                                                                                                                     FROM OTC_SA_DETAIL
+                                                                                                                    WHERE SA_NO = #{saNo}
+                                                                                                                      AND TRSACT_CODE IN ( 'A004' , 'A008' )
+                                                                                                                      AND BROK_RESERV_FLAG = 'Y'
+                                                                                                                    GROUP BY TRSACT_CODE )
+                                                                             , 0 ) ) AS HIRE
+          FROM DUAL
+    </select>
+
+    <select id="saOwnerACSearch5" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch5 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'I002' , 'I003' , 'I071' , 'I004' , 'I072' , 'I005' , 'I073' , 'I006' , 'I007' , 'N001' , 'N002' )
+         ORDER BY V.GROUP_SEQ
+             , V.TRSACT_CODE
+    </select>
+
+    <select id="saOwnerACSearch6" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACSearch6 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'I008' , 'I009' , 'I010' , 'I011' , 'I012' , 'I013' , 'I014' , 'I015' , 'M005' , 'M006' , 'I074' , 'I075' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saOwnerSettleRsvSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvSearch */
+        ]]>
+        select a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,
+               a.usd_sa_amt as entered_amt,
+               a.usd_sa_amt as usd_amt,
+               a.krw_sa_amt as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '210802' , '210803' , '210809' )
+    </select>
+
+    <select id="saOwnerSettleRsvSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvSearch1 */
+        ]]>
+        select a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,
+               a.usd_sa_amt as entered_amt,
+               a.usd_sa_amt as usd_amt,
+               a.krw_sa_amt as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '110902' , '110903' , '110907' , '110912' , '110913' )
+    </select>
+
+    <select id="saOwnerSettleRsvSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvSearch */
+        ]]>
+        select a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,
+               a.usd_sa_amt as entered_amt,
+               a.usd_sa_amt as usd_amt,
+               a.krw_sa_amt as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code = '210805'
+    </select>
+
+    <select id="saOwnerSettleApSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleApSearch */
+        ]]>
+        select a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,
+               a.usd_sa_amt as entered_amt,
+               a.usd_sa_amt as usd_amt,
+               a.krw_sa_amt as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '210403' , '210405' , '210402' , '210701' , '210499' )
+    </select>
+
+    <select id="saOwnerSettleApSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleApSearch1 */
+        ]]>
+        select a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,
+               a.usd_sa_amt as entered_amt,
+               a.usd_sa_amt as usd_amt,
+               a.krw_sa_amt as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '110502' , '110503' , '110599' )
+    </select>
+
+    <select id="saOnHireSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'A001' , 'A002' , 'A006' , 'A007' )
+         ORDER BY V.GROUP_SEQ
+             , V.TRSACT_CODE
+    </select>
+
+    <select id="saOnHireSelect1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect1 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code ='A003'
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saOnHireSelect2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect2 */
+        ]]>
+        SELECT NVL( MAX( T.ORG_TRX_NO ) , 0 ) AS ORG_TRX_NO
+             , NVL( MAX( T.AMD_CODE ) , 'X' ) AS AMD_CODE
+          FROM OTC_AMD_TAX_INFO T
+         WHERE T.AMD_TRX_NO = #{saNo}
+           AND T.DEL_FLAG = 'N'
+    </select>
+
+    <select id="saOnHireSelect3" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect3 */
+        ]]>
+        SELECT A.SA_NO
+             , A.POSTING_DATE
+             , A.LOC_EXC_RATE
+          FROM OTC_SA_HEAD A
+         WHERE A.SA_NO = #{org_sa_no}
+    </select>
+
+    <select id="saOnHireSelect4" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect */
+        ]]>
+        SELECT VAT_NO
+             , S_SEQ
+             , SEQ
+             , CNT
+             , S_TITLE
+             , ITEM_DESC
+             , TRSACT_CODE
+             , TAX_CODE_ID
+             , KRW_BASE_AMT
+             , KRW_VAT_AMT
+          FROM ( SELECT D.VAT_NO
+                      , D.S_SEQ
+                      , D.SEQ
+                      , MAX( CNT ) CNT
+                      , DECODE( D.SEQ , 2 , 'S.TOTAL' , MAX( D.VAT_INVOICE_NO ) ) S_TITLE
+                      , DECODE( D.SEQ , 2 , ' ' , MAX( D.ITEM_DESC ) ) ITEM_DESC
+                      , DECODE( D.SEQ , 2 , ' ' , MAX( D.TRSACT_CODE ) ) TRSACT_CODE
+                      , DECODE( D.SEQ , 2 , ' ' , MAX( D.TAX_CODE_ID ) ) TAX_CODE_ID
+                      , DECODE( D.SEQ , 2 , SUM( D.KRW_BASE_AMT ) , MAX( D.KRW_BASE_AMT ) ) AS KRW_BASE_AMT
+                      , DECODE( D.SEQ , 2 , SUM( D.KRW_VAT_AMT ) , MAX( D.KRW_VAT_AMT ) ) AS KRW_VAT_AMT
+                   FROM ( SELECT M.*
+                               , S.SEQ
+                               , DECODE( S.SEQ , 1 , M.VAT_SEQ , 9999 ) S_SEQ
+                            FROM ( SELECT TH.VAT_NO
+                                        , TH.VAT_INVOICE_NO
+                                        , TD.VAT_SEQ
+                                        , TD.ITEM_DESC
+                                        , TD.TRSACT_CODE
+                                        , SUBSTR( TH.TAX_CODE_ID , 4 , 1 ) AS TAX_CODE_ID
+                                        , TD.KRW_BASE_AMT
+                                        , TD.KRW_VAT_AMT
+                                        , MAX( TD.VAT_SEQ ) OVER ( PARTITION BY TH.DOCU_NO ) CNT
+                            FROM CCD_TAX_HEAD TH
+                               , CCD_TAX_DETAIL TD
+                           WHERE TH.VAT_NO = TD.VAT_NO
+                             AND TH.DEL_FLAG = 'N'
+                             AND TH.VAT_TYPE_CODE = 'S1'
+                             AND TH.DOCU_NO = #{org_sa_no} ) M
+                      , SOM_SEQ_DUAL S
+                  WHERE S.SEQ <![CDATA[<=]]> 2 ) D
+                  GROUP BY D.VAT_NO
+                      , D.S_SEQ
+                      , D.SEQ )
+         WHERE SEQ = 1
+            OR ( SEQ = 2
+           AND CNT <![CDATA[>]]> 1 )
+         ORDER BY VAT_NO
+             , SEQ
+             , S_SEQ
+    </select>
+
+    <select id="saOnHireSelect5" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect5 */
+        ]]>
+        select v.gl_date adv_gl_date
+          from EAR_IF_receipt_BALANCE_V V
+             , OTC_SA_DETAIL D
+         WHERE V.RECEIPT_NUMBER = D.STL_ERP_SLIP_NO
+           AND D.SA_NO = #{saNo}
+           AND D.STL_GL_ACC_CODE = 210701
+    </select>
+
+    <select id="saOnHireSelect6" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect6 */
+        ]]>
+        select /*+ opt_param( '_optimizer_join_factorization', 'FALSE' ) */
+               max( b.gl_date ) gl_date
+          from ( select /*+ leading( a ) no_merge( b ) use_nl( b ) push_pred( b ) no_merge( b.aida_mc ) push_pred( b.aida_mc ) no_merge( b.vnd ) push_pred( b.vnd ) no_merge( b.PENDING ) push_pred( b.PENDING ) no_merge( b.AI_USD ) push_pred( b.AI_USD ) */ b.gl_date
+                  from otc_sa_detail a
+                     , ear_if_invoice_balance_v b
+                 where to_char( a.stl_erp_slip_no ) = invoice_number
+                   and a.sa_no = #{saNo}
+                   and a.stl_erp_slip_no is not null
+                 union all
+                select v.gl_Date
+                  from otc_sa_detail a
+                     , ear_if_trx_balance_v v
+                 where to_char( a.stl_erp_slip_no ) = TRX_NUMBER
+                   and a.sa_no = #{saNo}
+                   and a.stl_erp_slip_no is not null
+                 union all
+                select v.gl_date
+                  from otc_sa_detail a
+                     , ear_if_receipt_balance_v v
+                 where to_char( a.stl_erp_slip_no ) = RECEIPT_NUMBER
+                   and a.sa_no = #{saNo}
+                   and a.stl_erp_slip_no is not null ) b
+    </select>
+
+    <select id="saOnHireSelect7" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOnHireSelect7 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'A004' , 'A005' , 'A008' , 'A009' )
+         ORDER BY V.GROUP_SEQ
+             , V.TRSACT_CODE
+    </select>
+
+    <select id="saBbcLngDetailInquiryt" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBbcLngDetailInquiryt */
+        ]]>
+        SELECT V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+         ORDER BY V.TRSACT_CODE
+    </select>
+
+    <update id="saWthTaxAmtUpdate" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWthTaxAmtUpdate */
+        ]]>
+        UPDATE OTC_SA_DETAIL A
+           SET ( A.USD_SA_AMT
+             , A.LOC_SA_AMT
+             , A.KRW_SA_AMT ) = ( SELECT SUM( A.USD_SA_AMT )
+                                       , SUM( A.LOC_SA_AMT )
+                                       , SUM( A.KRW_SA_AMT )
+                                    FROM OTC_SA_DETAIL A
+                                   WHERE A.SA_NO = #{saNo}
+                                     AND A.TRSACT_CODE IN ( 'M001' , 'M002' ) )
+                                   WHERE A.SA_NO = #{saNo}
+                                     AND A.TRSACT_CODE = 'M004'
+    </update>
+
+    <select id="saOffHireSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOffHireSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'H005' , 'H011' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saOffHireSelect1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOffHireSelect1 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'H001' , 'H002' , 'H009' , 'H010' , 'H003' , 'H004' , 'H006' , 'H007' , 'H008' )
+         ORDER BY V.GROUP_SEQ
+             , V.TRSACT_CODE
+    </select>
+
+    <select id="saHcleanSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saHcleanSearch */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'F001' , 'F003' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saHcleanSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saHcleanSearch1 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'F002' , 'F004' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saHcleanSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saHcleanSearch2 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC('TAX_CODE', V.TAX_CODE_FLAG) TAX_CODE_NAME, V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'G001' , 'G003' , 'G002' , 'G004' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'B001' , 'B002' , 'B003' , 'B004' , 'B005' , 'B006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerSelect1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'C001' , 'C002' , 'C003' , 'C004' , 'C005' , 'C006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerSelect_20080722" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerSelect_20080722 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'B001' , 'B002' , 'B003' , 'B004' , 'C001' , 'C002' , 'C003' , 'C004' , 'B005' , 'B006' , 'C005' , 'C006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerBODSelect_20080723" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerBODSelect_20080723 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'B001' , 'B002' , 'B003' , 'B004' , 'B005' , 'B006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerBODSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerBODSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'B001' , 'B002' , 'B003' , 'B004' , 'B005' , 'B006' )
+         ORDER BY V.GROUP_SEQ
+    </select>
+
+    <select id="saBunkerBORSelect_20080723" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerBORSelect_20080723 */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'C001' , 'C002' , 'C003' , 'C004' , 'C005' , 'C006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerBORSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerBORSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'C001' , 'C002' , 'C003' , 'C004' , 'C005' , 'C006' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerBehalfSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerBehalfSelect */
+        ]]>
+        SELECT COMCODE_INFO_FUNC( 'TAX_CODE', V.TAX_CODE_FLAG ) TAX_CODE_NAME
+             , V.*
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'E001' , 'E002' , 'E003' , 'E004' )
+         ORDER BY V.SA_SEQ
+    </select>
+
+    <select id="saBunkerFirstBODSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerFirstBODSelect */
+        ]]>
+        SELECT D.TRSACT_CODE
+             , D.BNK_QTY
+             , D.BNK_PRC
+             , DENSE_RANK() OVER (ORDER BY H.SA_NO, D.GROUP_SEQ ) AS GROUP_SEQ
+          FROM OTC_SA_DETAIL D
+             , OTC_SA_HEAD H
+         WHERE H.SA_NO = D.SA_NO
+           AND H.VSL_CODE = #{vslCode}
+           AND H.VOY_NO = #{voyNo}
+           AND H.CANCEL_FLAG = 'N'
+           AND DECODE( H.CHT_IN_OUT_CODE , 'R' , 'O' , H.CHT_IN_OUT_CODE ) = #{tcFlag}
+           AND D.TRSACT_CODE IN ( 'B001' , 'B002' , 'B003' , 'B004' , 'B005' , 'B006' )
+         ORDER BY D.SA_SEQ
+    </select>
+
+    <select id="saOpenItemSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOpenItemSearch */
+        ]]>
+        <choose>
+            <when test="openType == 'OE' or openType == 'RB' or openType == 'AP'">
+                select a.* ,
+                       (nvl(a.entered_balance_amount,0)-  nvl(a.entered_pending_amount,0)) as entered_amt,
+                       (nvl(a.usd_balance_amount,0)- nvl(a.usd_pending_amount,0)) as usd_amt,
+                       (nvl(a.krw_balance_amount,0)- nvl(a.krw_pending_amount,0)) as won_amt
+                  from ear_if_invoice_balance_v a
+            </when>
+            <when test="openType == 'AC' or openType == 'AR'">
+                select a.* ,
+                       (nvl(a.entered_balance_amount,0)- nvl(a.entered_pending_amount,0)) as entered_amt,
+                       (nvl(a.usd_balance_amount,0)- nvl(a.usd_pending_amount,0)) as usd_amt,
+                       (nvl(a.krw_balance_amount,0)- nvl(a.krw_pending_amount,0)) as won_amt
+                  from ear_if_trx_balance_v a
+            </when>
+            <when test="@kr.co.takeit.util.MybatisUtil@empty( openType )">
+                SELECT *
+                  FROM (select a.EXCHANGE_RATE_KRW, a.EXCHANGE_RATE_USD, a.EXCHANGE_RATE_DATE_KRW, a.SEGMENT4 as SEGMENT4 , a.SEGMENT5 as SEGMENT5, a.CURRENCY_CODE as CURRENCY_CODE,
+                               a.SEGMENT2 as SEGMENT2, a.PORT_CODE as PORT_CODE , a.VENDOR_NAME as CUSTOMER_NAME,
+                               a.CUSTOMER_UNIQUE_ID as CUSTOMER_UNIQUE_ID , a.INVOICE_NUMBER as INVOICE_NUMBER,
+                               a.SEGMENT3 as SEGMENT3 , a.COMMENTS as COMMENTS ,
+                               a.GL_DATE ,
+                               (nvl(a.entered_balance_amount,0)-  nvl(a.entered_pending_amount,0)) as entered_amt,
+                               (nvl(a.usd_balance_amount,0)- nvl(a.usd_pending_amount,0)) as usd_amt,
+                               (nvl(a.krw_balance_amount,0)- nvl(a.krw_pending_amount,0)) as won_amt
+                          from ear_if_invoice_balance_v a
+                         where 1= 1
+                           and a.segment4 <![CDATA[>]]> ' '
+                <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( postingDate )">
+                    and a.gl_date <![CDATA[<=]]> to_date(#{postingDate} ,'yyyymmdd')
+                </if>
+                <choose>
+                    <when test="stl_flag == 'L'">
+                        and a.segment3  IN ( '210802' ,'210805' ,'210809','210405', '210701','210402','210803','210403' ,'210809','210405','210701' ,'210499', '110599')
+                    </when>
+                    <when test="chtInOutCode == 'T'">
+                        and a.segment3  IN ( '210802' ,'210805' ,'210809','210405', '210701','210402' ,'210499', '110599')
+                    </when>
+                    <otherwise>
+                        and a.segment3 IN ( '210803','210403' ,'210809','210405','210701','210499, '110599' )
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
+
+        <choose>
+            <when test="openType == 'OE'">
+                <choose>
+                    <when test="stl_flag == 'L'">
+                        and a.segment3 in ('210802' ,'210803','210809')
+                    </when>
+                    <when test="chtInOutCode == 'T'">
+                        and a.segment3 in ('210802','210809')
+                    </when>
+                    <otherwise>
+                        and a.segment3 in ('210803','210809')
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="openType == 'RB'">
+                and a.segment3 = '210805'
+            </when>
+            <when test="openType == 'AP'">
+                <choose>
+                    <when test="stl_flag == 'L'">
+                        and a.segment3  IN ('210402' ,'210405','210701', '210403','210499' )
+                    </when>
+                    <when test="chtInOutCode == 'T'">
+                        and a.segment3  IN ('210402' ,'210405','210701', '210499')
+                    </when>
+                    <otherwise>
+                        and a.segment3 IN ('210403' ,'210405','210701','210499' )
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="openType == 'AC'">
+                <choose>
+                    <when test="stl_flag == 'L'">
+                        and a.segment3  IN ('110902' , '110912', '110903', '110913' )
+                    </when>
+                    <when test="chtInOutCode == 'T'">
+                        and a.segment3  IN ('110902' , '110912', '110913')
+                    </when>
+                    <otherwise>
+                        and a.segment3 IN ('110903' , '110912', '110913')
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="openType == 'AR'">
+                <choose>
+                    <when test="stl_flag == 'L'">
+                        and a.segment3  IN ( '110503', '110502' ,'110599')
+                    </when>
+                    <when test="chtInOutCode == 'T'">
+                        and a.segment3  IN ('110503','110599')
+                    </when>
+                    <otherwise>
+                        and a.segment3 IN ('110502', '110599')
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
+       <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( vslCode )">
+          and a.segment4 = #{vslCode}
+       </if>
+       <if test="voyNo!= 0">
+          and a.segment5 = #{voyNo}
+       </if>
+       <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( accCode )">
+          and a.customer_unique_id = #{accCode}
+       </if>
+       <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( teamCode )">
+          and ( a.segment2 = #{teamCode} or a.new_dept_code = #{teamCode} )
+       </if>
+          and ( a.source_system <![CDATA[<>]]> 'CNTR' or ( a.source_system = 'CNTR' and substr( a.source_trx_number , 9 , 4 ) IN ( 'CFDE' , 'CADE' , 'CDDE' ) ) )
+          and ( ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[>]]> 0 OR ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[<]]> 0 )
+       <if test="@kr.co.takeit.util.MybatisUtil@empty( openType )">
+        UNION ALL
+       select a.EXCHANGE_RATE_KRW
+            , a.EXCHANGE_RATE_USD
+            , a.EXCHANGE_RATE_DATE_KRW
+            , a.SEGMENT4 as SEGMENT4
+            , a.SEGMENT5 as SEGMENT5
+            , a.CURRENCY_CODE as CURRENCY_CODE
+            , a.SEGMENT2 as SEGMENT2
+            , a.PORT_CODE as PORT_CODE
+            , a.CUSTOMER_NAME as CUSTOMER_NAME
+            , a.CUSTOMER_UNIQUE_ID as CUSTOMER_UNIQUE_ID
+            , a.TRX_NUMBER as INVOICE_NUMBER
+            , a.SEGMENT3 as SEGMENT3
+            , a.COMMENTS as COMMENTS
+            , a.GL_DATE
+            , ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) as entered_amt
+            , ( nvl( a.usd_balance_amount , 0 ) - nvl( a.usd_pending_amount , 0 ) ) as usd_amt
+            , ( nvl( a.krw_balance_amount , 0 ) - nvl( a.krw_pending_amount , 0 ) ) as won_amt
+         from ear_if_trx_balance_v a
+        where 1= 1
+          and a.segment4 <![CDATA[>]]> ' '
+         <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( postingDate )">
+          and a.gl_date <![CDATA[<=]]> to_date( #{postingDate} , 'yyyymmdd' )
+         </if>
+
+         <choose>
+             <when test="stl_flag == 'L'">
+                 and a.segment3 IN ( '110902' , '110912' , '110503' , '110903' , '110502' , '110913' , '110599' )
+             </when>
+             <when test="chtInOutCode == 'T'">
+                 and a.segment3 IN ( '110902' , '110912' , '110503' , '110913' , '110599' )
+             </when>
+             <otherwise>
+                 and a.segment3 IN ( '110903' , '110912' , '110502' , '110913' , '110599' )
+             </otherwise>
+         </choose>
+
+         <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( vslCode )">
+          and a.segment4 = #{vslCode}
+         </if>
+         <if test="voyNo!= 0">
+          and a.segment5 = #{voyNo}
+         </if>
+         <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( accCode )">
+          and a.customer_unique_id = #{accCode}
+         </if>
+         <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( teamCode )">
+          and ( a.segment2 = #{teamCode}
+           or a.new_dept_code = #{teamCode} )
+         </if>
+          and ( a.source_system <![CDATA[<>]]> 'CNTR' or ( a.source_system = 'CNTR' and substr( a.source_trx_number , 9 , 4 ) IN ( 'CFDE' , 'CADE' , 'CDDE' ) ) )
+          and ( ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[>]]> 0 OR ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[<]]> 0 )
+           )
+       </if>
+    </select>
+
+    <select id="saAdvancedReceiveSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAdvancedReceiveSearch */
+        ]]>
+        SELECT a.receipt_id
+             , a.receipt_number as invoice_number
+             , a.receipt_book_number
+             , a.gl_date
+             , a.currency_code
+             , a.entered_receipt_amount
+             , a.entered_balance_amount
+             , a.entered_pending_amount
+             , a.krw_receipt_amount
+             , a.krw_balance_amount
+             , a.krw_pending_amount
+             , a.usd_receipt_amount
+             , a.paymnet_user
+             , a.comments
+             , a.created_user
+             , a.customer_unique_id
+             , a.customer_number
+             , a.customer_name as vendor_name
+             , a.country
+             , a.payment_method
+             , a.vessel_code as segment4
+             , a.voyage_no as segment5
+             , a.exchange_rate_type_krw
+             , a.exchange_rate_date_krw
+             , a.exchange_rate_krw
+             , a.exchange_rate_type_usd
+             , a.exchange_rate_date_usd
+             , a.exchange_rate_usd
+             , '' as segment2
+             , '' as port_code
+             , '210701' as segment3
+             , ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) as entered_amt
+             , ( nvl( a.usd_balance_amount , 0 ) - nvl( a.usd_pending_amount , 0 ) ) as usd_amt
+             , ( nvl( a.krw_balance_amount , 0 ) - nvl( a.krw_pending_amount , 0 ) ) as won_amt
+          from ear_if_receipt_balance_v a
+         where 1=1
+        <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( fromDate )">
+           and a.gl_date between to_date( #{fromDate} , 'yyyy-mm-dd' ) and to_date( #{toDate} , 'yyyy-mm-dd' )
+        </if>
+        <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( accCode )">
+           and a.customer_unique_id = #{accCode}
+        </if>
+           and ( ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[>]]> 0
+            OR ( nvl( a.entered_balance_amount , 0 ) - nvl( a.entered_pending_amount , 0 ) ) <![CDATA[<]]> 0 )
+    </select>
+
+    <select id="saBalanceCheckSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch */
+        ]]>
+        select a.sa_no, a.cht_in_out_code,COMCODE_INFO_FUNC('CHT_IN_OUT_CODE', a.cht_in_out_code) as cht_in_out_name,
+               a.voy_no, a.step_no, a.cntr_no,a.posting_date, a.op_team_code,team_info_func(a.op_team_code) as team_name,
+               a.cntr_acc_code,ACC_NAME_FUNC(A.CNTR_ACC_CODE) AS acc_name, ACC_NATION_FUNC(A.CNTR_ACC_CODE) AS nat_code,
+               a.vsl_code , vsl_name_func(a.vsl_code) as vsl_name, a.process_sts_flag,
+               nat_eng_name_func(acc_nation_func(a.cntr_acc_code)) as nat_name, a.loc_exc_rate, a.wth_flag,
+               GET_WTH_TAX_RATE(a.cntr_acc_code, a.cntr_no ) as income_tax_rate,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.usd_loc_rate, a.curcy_code, a.cancel_flag,
+               (select b.benef_acc_code from otc_cp_item_head b where a.cntr_no = b.cntr_no) benef_Acc_Code
+          from otc_sa_head a
+         WHERE a.vsl_code = #{vslCode}
+           and a.voy_no = #{voyNo}
+           and a.cht_in_out_code = #{chtInOutCode}
+           and a.step_no = #{stepNo}
+    </select>
+
+    <select id="saBalanceCheckSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch1 */
+        ]]>
+        select DECODE(b.trsact_code, 'A006','A001','A007','A002', 'A008','A004','A009','A005', 'H009','H001','H010','H002', b.trsact_code ) trsact_code,
+               c.trsact_name ,b.vat_flag,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt , sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         WHERE b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and ((b.trsact_code between 'A001' and 'H011') OR b.trsact_code = 'M004')
+         group by b.trsact_code, c.trsact_name, b.vat_flag
+         order by DECODE(b.trsact_code, 'A006','A001','A007','A002', 'A008','A004','A009','A005', 'H009','H001','H010','H002', b.trsact_code )
+    </select>
+
+    <select id="saBalanceCheckSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch2 */
+        ]]>
+        select DECODE(b.trsact_code, 'I071','I003','I072','I004','I072','I005', b.trsact_code ) trsact_code,
+               c.trsact_name ,b.vat_flag, b.remark,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt , sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         WHERE b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and  b.trsact_code IN ('I001','I002', 'I003','I004','I005','I071','I072','I073', 'I006','I007', 'I008','I009','I010','I011','I012','I013','I014','I015','I016','I017','I018','I019','I020','I021','I022','I023','I024','I025','I026','I027','I028','I029','I030','I031','I032','I033','I034','I035','I036','I037','I038','I039','I040','I041','I042','I043','I044','I045','I046','I047','I048','I049','I050','I051','I052','I053','I054','J001','J002','J003','J004','J005','J006','J007','J008','J009','J010','K001','K002','K003','K004','K005','K006','K007','M005','M006','M007','M008','N001','N002', 'I074','I075','J008','J009','J011','J012')
+         group by b.trsact_code,  c.trsact_name, b.vat_flag ,b.remark
+         order by DECODE(b.trsact_code, 'I071','I003','I072','I004','I072','I005', b.trsact_code )
+    </select>
+
+    <select id="saBalanceCheckSearch3" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch */
+        ]]>
+        select b.trsact_code,  c.trsact_name ,b.vat_flag,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt , sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         WHERE b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and b.trsact_code <![CDATA[>]]> 'N002'
+         group by  b.trsact_code, c.trsact_name, b.vat_flag
+         order by b.trsact_code
+    </select>
+
+    <select id="saBalanceCheckSearch4" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch4 */
+        ]]>
+        SELECT b.sa_no
+             , sum( nvl( b.usd_sa_amt , 0 ) ) +sum( nvl( b.usd_vat_sa_amt , 0 ) ) as usd_amt
+             , sum( nvl( b.krw_sa_amt , 0 ) ) +sum( nvl( b.krw_vat_sa_amt , 0 ) ) as krw_amt
+          from  otc_sa_detail b, ccd_trsact_type_m c
+         where b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and b.trsact_code not in ( 'L001' , 'L002')
+         group by b.sa_no
+    </select>
+
+    <select id="saBalanceCheckSearch5" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch5 */
+        ]]>
+        select b.due_date, b.pymt_term, b.terms_date, b.pymt_hold_flag, b.pymt_meth,nvl(b.bank_acc_id,0) as bank_acc_id, b.bank_acc_desc,
+               NVL( b.usd_sa_amt
+                  , 0 ) +nvl( b.usd_vat_sa_amt
+                  , 0 ) as usd_amt
+                  , nvl( b.krw_sa_amt , 0 ) +nvl( b.krw_vat_sa_amt
+                  , 0 ) as krw_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         where b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and b.trsact_code = 'L002'
+           and c.own_vsl_category = #{chtInOutCode}
+    </select>
+
+    <select id="saBalanceCheckSearch6" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch6 */
+        ]]>
+        select DECODE(b.trsact_code, 'A006','A001','A007','A002', 'A008','A004','A009','A005', 'H009','H001','H010','H002', b.trsact_code ) trsact_code,
+               c.trsact_name ,b.vat_flag,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt, sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         WHERE b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and ((b.trsact_code between 'A001' and 'H011') OR b.trsact_code in ('M001','M002'))
+         group by b.trsact_code, c.trsact_name, b.vat_flag
+         order by DECODE(b.trsact_code, 'A006','A001','A007','A002', 'A008','A004','A009','A005', 'H009','H001','H010','H002', b.trsact_code )
+    </select>
+
+    <select id="saBalanceCheckSearch7" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch */
+        ]]>
+        select DECODE(b.trsact_code, 'I071','I003','I072','I004','I072','I005', b.trsact_code ) trsact_code,
+               c.trsact_name ,b.vat_flag, b.remark,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt, sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         WHERE b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and  b.trsact_code IN ('I001', 'I002', 'I003','I004','I005','I071','I072','I073', 'I006','I007', 'I008','I009','I010','I011','I012','I013','I014','I015','I016','I017','I018','I019','I020','I021','I022','I023','I024','I025','I026','I027','I028','I029','I030','I031','I032','I033','I034','I035','I036','I037','I038','I039','I040','I041','I042','I043','I044','I045','I046','I047','I048','I049','I050','I051','I052','I053','I054','J001','J002','J003','J004','J005','J006','J007','J008','J009','J010','K001','K002','K003','K004','K005','K006','K007','M005','M006','M007','M008','N001','N002', 'I074','I075','J008','J009','J011','J012')
+         group by b.trsact_code,  c.trsact_name, b.vat_flag ,b.remark
+         order by DECODE(b.trsact_code, 'I071','I003','I072','I004','I072','I005', b.trsact_code )
+    </select>
+
+    <select id="saBalanceCheckSearch8" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch8 */
+        ]]>
+        select b.trsact_code, c.trsact_name ,b.vat_flag,
+               sum(nvl(b.usd_sa_amt,0)) as usd_sa_amt, sum(nvl(b.krw_sa_amt,0)) as krw_sa_amt, sum(nvl(b.usd_vat_sa_amt,0)) as usd_vat_sa_amt, sum(nvl(b.krw_vat_sa_amt,0)) as krw_vat_sa_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         where b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and c.own_vsl_category = #{chtInOutCode}
+           and b.trsact_code <![CDATA[>]]> 'N002'
+         group by  b.trsact_code,  c.trsact_name, b.vat_flag
+         order by b.trsact_code
+    </select>
+
+    <select id="saBalanceCheckSearch9" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch9 */
+        ]]>
+        select b.sa_no, sum(nvl(b.usd_sa_amt,0)) + sum(nvl(b.usd_vat_sa_amt,0)) as usd_amt, sum(nvl(b.krw_sa_amt,0))+ sum(nvl(b.krw_vat_sa_amt,0)) as krw_amt
+          from otc_sa_detail b, ccd_trsact_type_m c
+         where b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and b.trsact_code not in ( 'L001' , 'L002')
+         group by b.sa_no
+    </select>
+
+    <select id="saBalanceCheckSearch10" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckSearch10 */
+        ]]>
+        select b.due_date, b.pymt_term, b.terms_date, b.pymt_hold_flag, b.pymt_meth,nvl(b.bank_acc_id,0) as bank_acc_id, b.bank_acc_desc,
+               nvl(b.usd_sa_amt,0) + nvl(b.usd_vat_sa_amt,0) as usd_amt, nvl(b.krw_sa_amt,0)+ nvl(b.krw_vat_sa_amt,0) as krw_amt,
+               court_flag, court_admit_no
+          from otc_sa_detail b, ccd_trsact_type_m c
+         where b.sa_no = #{sa_no}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.own_vsl_category = #{chtInOutCode}
+           and c.som_system_type ='SOMO'
+           and b.trsact_code ='L001'
+    </select>
+
+    <select id="saBalanceCheckCalculation" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckCalculation */
+        ]]>
+        select SUM( nvl( b.usd_sa_amt , 0 ) ) +sum( nvl( b.usd_vat_sa_amt , 0 ) ) as usd_amt
+             , sum( nvl( b.krw_sa_amt , 0 ) ) +sum( nvl( b.krw_vat_sa_amt , 0 ) ) as krw_amt
+          from otc_sa_head a, otc_sa_detail b, ccd_trsact_type_m c
+         where a.sa_no = b.sa_no
+           and a.sa_no = #{saNo}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and a.cht_in_out_code  = c.own_vsl_category
+           and b.trsact_code not in ( 'L001' , 'L002')
+    </select>
+
+    <select id="saBalanceCheckCalculation1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceCheckCalculation1 */
+        ]]>
+        SELECT sum( nvl( b.usd_sa_amt , 0 ) ) +sum( nvl( b.usd_vat_sa_amt , 0 ) ) as usd_amt
+             , sum( nvl( b.krw_sa_amt , 0 ) ) +sum( nvl( b.krw_vat_sa_amt , 0 ) ) as krw_amt
+          from otc_sa_head a, otc_sa_detail b, ccd_trsact_type_m c
+         where a.sa_no = b.sa_no
+           and a.sa_no = #{saNo}
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and a.cht_in_out_code  = c.own_vsl_category
+           and b.trsact_code not in ( 'L001' , 'L002')
+    </select>
+
+    <select id="saDiffKrwAmtCalculation" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saDiffKrwAmtCalculation */
+        ]]>
+        SELECT sum( decode( c.o_sa_rpt_debit_credit , '1' , nvl( b.krw_sa_amt , 0 ) +nvl( b.krw_vat_sa_amt , 0 ) , 0 ) ) - sum( decode( c.o_sa_rpt_debit_credit , '2' , nvl( b.krw_sa_amt , 0 ) +nvl( b.krw_vat_sa_amt , 0 ) , 0 ) ) as diff_krw_amt
+          from otc_sa_head a
+             , otc_sa_detail b
+             , ccd_trsact_type_m c
+         where a.sa_no = b.sa_no
+           and a.sa_no = #{saNo}
+           and b.trsact_code = c.trsact_code
+           and c.som_system_type ='SOMO'
+           and a.cht_in_out_code = c.own_vsl_category
+    </select>
+
+    <update id="saBalanceDueDateModify" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBalanceDueDateModify */
+        ]]>
+        UPDATE OTC_SA_DETAIL
+           SET DUE_DATE = #{due_date}
+             , TERMS_DATE = #{terms_date}
+             , PYMT_HOLD_FLAG = #{pymt_hold_flag}
+             , BANK_ACC_ID = #{bank_acc_id}
+             , BANK_ACC_DESC = #{bank_acc_desc}
+             , SYS_UPD_DATE = SYSDATE
+             , SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE SA_NO = #{saNo}
+           AND TRSACT_CODE IN ( 'L001' , 'L002' )
+    </update>
+
+    <select id="saDetailWithholdHireCal" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saDetailWithholdHireCal */
+        ]]>
+        SELECT SA_NO
+             , MIN( FROM_DATE ) as from_date
+             , MAX( TO_DATE ) as to_date
+             , SUM( NVL( SA_RATE_DUR , 0 ) ) as rate_dur
+             , SUM( NVL( SA_RATE , 0 ) ) as rate
+          FROM OTC_SA_DETAIL
+         WHERE SA_NO = #{saNo}
+           AND TRSACT_CODE IN ( 'A001' , 'A006' )
+         GROUP BY SA_NO
+    </select>
+
+    <select id="saBunkerInitSelect" parameterType="map" resultType="map" useCache="false" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBunkerInitSelect */
+        ]]>
+        SELECT A.*
+             , B.FO_PRICE
+             , B.DO_PRICE
+          FROM SCT_TC_INFO_HEAD A
+             , OTC_CP_ITEM_HEAD B
+         WHERE A.CNTR_NO = B.CNTR_NO
+           AND B.VSL_CODE = #{vslCode}
+           AND B.VOY_NO = #{voyNo}
+           AND B.CHT_IN_OUT_CODE = #{chtInCode}
+    </select>
+
+    <select id="saOwnerACInitSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACInitSearch */
+        ]]>
+        SELECT A.CP_ITEM_NO
+             , A.BLST_BONUS
+             , A.CVE
+             , A.VOY_NO
+             , A.APLY_TIME_FLAG
+             , A.CNTR_NO
+             , A.LAY_CAN_FROM_DATE
+             , A.CNTR_ACC_CODE
+             , A.LAY_CAN_TO_DATE
+             , A.BANK_NAT_CODE
+             , A.OP_TEAM_CODE
+             , A.WTH_TAX_FLAG
+             , A.REDLY_NOTICE1
+             , A.BROK_COMM_RATE
+             , A.REDLY_NOTICE2
+             , A.BROK_COMM_RATE2
+             , A.REDLY_NOTICE3
+             , A.FO_PRICE
+             , A.REDLY_NOTICE4
+             , A.ILOHC
+             , A.REDLY_NOTICE5
+             , A.CHT_IN_OUT_CODE
+             , A.REDLY_NOTICE6
+             , A.NAT_CODE
+             , A.REDLY_NOTICE7
+             , A.BROK_ACC_CODE
+             , A.REDLY_NOTICE8
+             , A.REDLY_NOTICE9
+             , A.VSL_CODE
+             , A.REDLY_NOTICE10
+             , A.DO_PRICE
+             , A.CNTR_TEAM_CODE
+             , A.BROK_ACC_CODE2
+             , A.SYS_CRE_DATE
+             , A.SYS_CRE_USER_ID
+             , A.SYS_UPD_DATE
+             , A.SYS_UPD_USER_ID
+             , A.BANK_NAME
+             , NAT_ENG_NAME_FUNC( A.BANK_NAT_CODE ) AS BANK_NAT_NAME
+             , NAT_ENG_NAME_FUNC( A.NAT_CODE ) AS NAT_NAME
+             , TEAM_INFO_FUNC( A.OP_TEAM_CODE ) AS OP_TEAM_NAME
+             , TEAM_INFO_FUNC( A.CNTR_TEAM_CODE ) AS CNTR_TEAM_NAME
+             , ACC_NAME_FUNC( A.CNTR_ACC_CODE ) AS CNTR_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE ) AS BROK_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE2 ) AS BROK_ACC_NAME2
+             , VSL_NAME_FUNC( A.VSL_CODE ) AS VSL_NAME
+             , Cntr_Name_Func( A.CNTR_NO ) AS CNTR_NAME
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE ) AS BROK_NAT
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE2 ) AS BROK_NAT2
+             , NAT_ENG_NAME_FUNC( ACC_NATION_FUNC( A.CNTR_ACC_CODE ) ) AS ACC_NAT_NAME
+          FROM OTC_CP_ITEM_HEAD A
+         WHERE A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtinCd}
+    </select>
+
+    <select id="saOwnerACInitSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACInitSearch1 */
+        ]]>
+        SELECT A.FO_PRICE
+             , A.DO_PRICE
+             , A.BROK_ACC_CODE
+             , A.BROK_COMM_RATE
+             , ACC_NAME_FUNC(A.BROK_ACC_CODE) AS BROK_ACC_NAME
+             , A.BROK_ACC_CODE2
+             , A.BROK_COMM_RATE2
+             , ACC_NAME_FUNC(A.BROK_ACC_CODE2) AS BROK_ACC_NAME2
+             , B.CP_DATE
+             , B.FROM_DATE
+             , B.TO_DATE
+             , B.DAY_HIRE
+             , B.HIRE_DUR
+             , B.ADDR_COMM_RATE
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE ) AS BROK_NAT
+             , ACC_NATION_FUNC( A.BROK_ACC_CODE2 ) AS BROK_NAT2
+          FROM OTC_CP_ITEM_HEAD A
+             , OTC_CP_ITEM_DETAIL B
+         WHERE A.CP_ITEM_NO = B.CP_ITEM_NO
+           AND A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtinCd}
+           AND B.CP_ITEM_SEQ = ( SELECT MIN( CP_ITEM_SEQ )
+                                   FROM OTC_CP_ITEM_DETAIL
+                                  WHERE CP_ITEM_NO = A.CP_ITEM_NO )
+    </select>
+
+    <select id="saOwnerACInitSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACInitSearch2 */
+        ]]>
+        SELECT bank.BANK_ACCOUNT_ID as bank_acc_id
+             , bank.BANK_NAME || '-' || bank.BANK_BRANCH_NAME || ' ' || bank.BANK_ACCOUNT_NUM as bank_acc_desc
+          FROM EAR_VENDOR_BANK_ACCOUNT_V bank
+         where bank.customer_unique_id= #{brok}
+    </select>
+
+    <select id="saOffHireInitSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOffHireInitSelect */
+        ]]>
+        SELECT A.*
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , B.CP_DATE
+             , B.FROM_DATE
+             , B.TO_DATE
+             , B.DAY_HIRE
+             , B.HIRE_DUR
+             , B.ADDR_COMM_RATE
+          FROM OTC_CP_ITEM_HEAD A
+             , OTC_CP_ITEM_DETAIL B
+         WHERE A.CP_ITEM_NO = B.CP_ITEM_NO
+           AND A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtInCode}
+           AND B.CP_ITEM_SEQ = ( SELECT MIN( CP_ITEM_SEQ )
+                                   FROM OTC_CP_ITEM_DETAIL
+                                  WHERE CP_ITEM_NO = A.CP_ITEM_NO )
+    </select>
+
+    <select id="saOwnerSettleRsvUnSubmitSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvUnSubmitSearch */
+        ]]>
+        select /*+ NO_MERGE(D) NO_MERGE(D.aida_mc) PUSH_PRED(D.aida_mc) NO_MERGE(D.AI_USD) PUSH_PRED(D.AI_USD) */
+               d.* , a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,  d.gl_date,
+               (nvl(d.entered_balance_amount,0)-  nvl(d.entered_pending_amount,0)) as entered_amt,
+               (nvl(d.usd_balance_amount,0)- nvl(d.usd_pending_amount,0)) as usd_amt,
+               (nvl(d.krw_balance_amount,0)- nvl(d.krw_pending_amount,0)) as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from EAR_IF_INVOICE_BALANCE_V d, otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.STL_ERP_SLIP_NO = d.INVOICE_NUMBER
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '210802' , '210803' , '210809' )
+    </select>
+
+    <select id="saOwnerSettleRsvUnSubmitSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvUnSubmitSearch1 */
+        ]]>
+        SELECT /*+ PUSH_PRED(D) */
+             , A.STL_CNTR_ACC_CODE
+             , C.OP_TEAM_CODE
+             , C.CNTR_TEAM_CODE
+             , ACC_NAME_FUNC(A.STL_CNTR_ACC_CODE) AS STL_ACC_NAME
+             , A.CURCY_CODE AS CURRENCY_CODE
+             , (NVL(D.ENTERED_BALANCE_AMOUNT,0)- NVL(D.ENTERED_PENDING_AMOUNT,0)) AS ENTERED_AMT
+             , (NVL(D.USD_BALANCE_AMOUNT,0)- NVL(D.USD_PENDING_AMOUNT,0)) AS USD_AMT
+             , (NVL(D.KRW_BALANCE_AMOUNT,0)- NVL(D.KRW_PENDING_AMOUNT,0)) AS WON_AMT
+             , A.STL_ERP_SLIP_NO AS SLIP_NO
+             , A.STL_GL_ACC_CODE AS GL_ACCT
+             , C.SA_NO, A.STL_FLAG
+             , A.STL_VSL_CODE
+             , A.STL_VOY_NO
+             , A.STL_ERP_SLIP_NO
+             , A.USD_SA_AMT
+             , A.LOC_SA_AMT
+             , A.KRW_SA_AMT
+             , A.STL_PORT_CODE
+             , A.REMARK
+             , A.CURCY_CODE
+             , A.EXC_DATE
+             , A.EXC_RATE_TYPE
+             , A.USD_EXC_RATE
+             , A.LOC_EXC_RATE,A.USD_LOC_RATE
+             , A.DUE_DATE
+             , A.TERMS_DATE
+             , A.PYMT_TERM
+             , A.PYMT_HOLD_FLAG
+             , D.TRX_ID
+             , D.TRX_NUMBER
+             , D.GL_DATE
+             , D.SOURCE_SYSTEM
+             , D.SOURCE_TRX_NUMBER
+             , D.SOURCE_TRX_ITEM_NUMBER
+             , D.CURRENCY_CODE
+             , D.ENTERED_TRX_AMOUNT
+             , D.KRW_TRX_AMOUNT
+             , D.USD_TRX_AMOUNT
+             , D.DUE_DATE
+             , D.CUSTOMER_UNIQUE_ID
+             , D.CUSTOMER_NUMBER
+             , D.CUSTOMER_NAME
+             , D.COUNTRY
+             , D.PORT_CODE
+             , D.COMMENTS
+             , D.CREATED_USER
+             , D.SEGMENT1
+             , D.SEGMENT2
+             , D.SEGMENT3
+             , D.SEGMENT4
+             , D.SEGMENT5
+             , D.SEGMENT6
+             , D.SEGMENT7
+             , D.EXCHANGE_RATE_TYPE_KRW
+             , D.EXCHANGE_RATE_DATE_KRW
+             , D.EXCHANGE_RATE_KRW
+             , D.EXCHANGE_RATE_TYPE_USD
+             , D.EXCHANGE_RATE_DATE_USD
+             , D.EXCHANGE_RATE_USD
+             , D.IF_TYPE_I
+          FROM EAR_IF_TRX_BALANCE_V D, OTC_SA_HEAD C, OTC_SA_DETAIL A
+         WHERE A.SA_NO = C.SA_NO
+           AND A.STL_ERP_SLIP_NO = D.TRX_NUMBER
+           AND a.sa_no = #{saNo}
+           AND a.stl_gl_acc_code IN ( '110902' , '110903' , '110907' , '110912' , '110913' )
+    </select>
+
+    <select id="saOwnerSettleRsvUnSubmitSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleRsvUnSubmitSearch2 */
+        ]]>
+        select /*+ NO_MERGE(D) NO_MERGE(D.aida_mc) PUSH_PRED(D.aida_mc) NO_MERGE(D.AI_USD) PUSH_PRED(D.AI_USD) */
+               d.* , a.stl_cntr_acc_code,c.op_team_code, c.cntr_team_code,
+               ACC_NAME_FUNC(a.stl_cntr_acc_code) as stl_acc_name ,
+               a.curcy_code as currency_code,  d.gl_date,
+               (nvl(d.entered_balance_amount,0)-  nvl(d.entered_pending_amount,0)) as entered_amt,
+               (nvl(d.usd_balance_amount,0)- nvl(d.usd_pending_amount,0)) as usd_amt,
+               (nvl(d.krw_balance_amount,0)- nvl(d.krw_pending_amount,0)) as won_amt,
+               a.stl_erp_slip_no  as slip_no,
+               a.stl_gl_acc_code as gl_acct,
+               c.sa_no, a.stl_flag, a.stl_vsl_code, a.stl_voy_no, a.stl_erp_slip_no, a.usd_sa_amt,
+               a.loc_sa_amt, a.krw_sa_amt, a.stl_port_code, a.remark, a.curcy_code,
+               a.exc_date, a.exc_rate_type, a.usd_exc_rate, a.loc_exc_rate,a.usd_loc_rate,
+               a.due_date, a.terms_date, a.pymt_term, a.pymt_hold_flag
+          from EAR_IF_INVOICE_BALANCE_V d, otc_sa_head c, otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.STL_ERP_SLIP_NO = d.INVOICE_NUMBER
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code = '210805'
+    </select>
+
+    <select id="saOwnerSettleApUnSubmitSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleApUnSubmitSearch */
+        ]]>
+        SELECT /*+ NO_MERGE( D ) NO_MERGE( D.aida_mc ) PUSH_PRED( D.aida_mc ) NO_MERGE( D.AI_USD ) PUSH_PRED( D.AI_USD ) */ d.invioce_id
+             , d.invoice_number
+             , d.gl_date
+             , d.source_system
+             , d.source_trx_number
+             , d.source_trx_item_number
+             , d.currency_code
+             , d.entered_invoice_amount
+             , d.entered_balance_amount
+             , d.entered_pending_amount
+             , d.krw_invoice_amount
+             , d.krw_balance_amount
+             , d.krw_pending_amount
+             , d.usd_invoice_amount
+             , d.usd_balance_amount
+             , d.usd_pending_amount
+             , d.due_date as due_date1
+             , d.customer_unique_id
+             , d.vendor_number
+             , d.vendor_name
+             , d.country
+             , d.port_code
+             , d.comments
+             , d.created_user
+             , d.segment1
+             , d.segment2
+             , d.segment3
+             , d.segment4
+             , d.segment5
+             , d.segment6
+             , d.segment7
+             , d.exchange_rate_type_krw
+             , d.exchange_rate_date_krw
+             , d.exchange_rate_krw
+             , d.exchange_rate_type_usd
+             , d.exchange_rate_date_usd
+             , d.exchange_rate_usd
+             , d.if_type_id
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , a.stl_cntr_acc_code
+             , c.op_team_code
+             , c.cntr_team_code
+             , ACC_NAME_FUNC( a.stl_cntr_acc_code ) as stl_acc_name
+             , a.curcy_code as currency_code
+             , ( nvl( d.entered_balance_amount , 0 ) - nvl( d.entered_pending_amount , 0 ) ) as entered_amt
+             , ( nvl( d.usd_balance_amount , 0 ) - nvl( d.usd_pending_amount , 0 ) ) as usd_amt
+             , ( nvl( d.krw_balance_amount , 0 ) - nvl( d.krw_pending_amount , 0 ) ) as won_amt
+             , a.stl_erp_slip_no as slip_no
+             , a.stl_gl_acc_code as gl_acct
+             , c.sa_no
+             , a.stl_flag
+             , a.stl_vsl_code
+             , a.stl_voy_no
+             , a.stl_erp_slip_no
+             , a.usd_sa_amt
+             , a.loc_sa_amt
+             , a.krw_sa_amt
+             , a.stl_port_code
+             , a.remark
+             , a.curcy_code
+             , a.exc_date
+             , a.exc_rate_type
+             , a.usd_exc_rate
+             , a.loc_exc_rate
+             , a.usd_loc_rate
+             , a.due_date
+             , a.terms_date
+             , a.pymt_term
+             , a.pymt_hold_flag
+          from EAR_IF_INVOICE_BALANCE_V d
+             , otc_sa_head c
+             , otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.STL_ERP_SLIP_NO = d.INVOICE_NUMBER
+           and a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '210403' , '210405' , '210402' , '210701' , '210499' )
+         union all
+        select d.receipt_id
+             , d.receipt_number
+             , d.gl_date
+             , NULL
+             , NULL
+             , NULL
+             , d.currency_code
+             , d.entered_receipt_amount
+             , d.entered_balance_amount
+             , d.entered_pending_amount
+             , d.krw_receipt_amount
+             , d.krw_balance_amount
+             , d.krw_pending_amount
+             , d.usd_receipt_amount
+             , NULL
+             , NULL
+             , NULL
+             , d.customer_unique_id
+             , d.customer_number
+             , d.customer_name
+             , d.country
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , NULL
+             , d.exchange_rate_type_krw
+             , d.exchange_rate_date_krw
+             , d.exchange_rate_krw
+             , d.exchange_rate_type_usd
+             , d.exchange_rate_date_usd
+             , d.exchange_rate_usd
+             , NULL
+             , d.receipt_book_number
+             , d.paymnet_user
+             , d.comments
+             , d.created_user
+             , d.payment_method
+             , d.vessel_code
+             , d.voyage_no
+             , a.stl_cntr_acc_code
+             , c.op_team_code
+             , c.cntr_team_code
+             , ACC_NAME_FUNC( a.stl_cntr_acc_code ) as stl_acc_name
+             , a.curcy_code as currency_code
+             , ( nvl( d.entered_balance_amount , 0 ) - nvl( d.entered_pending_amount , 0 ) ) as entered_amt
+             , ( nvl( d.usd_balance_amount , 0 ) - nvl( d.usd_pending_amount , 0 ) ) as usd_amt
+             , ( nvl( d.krw_balance_amount , 0 ) - nvl( d.krw_pending_amount , 0 ) ) as won_amt
+             , a.stl_erp_slip_no as slip_no
+             , a.stl_gl_acc_code as gl_acct
+             , c.sa_no
+             , a.stl_flag
+             , a.stl_vsl_code
+             , a.stl_voy_no
+             , a.stl_erp_slip_no
+             , a.usd_sa_amt
+             , a.loc_sa_amt
+             , a.krw_sa_amt
+             , a.stl_port_code
+             , a.remark
+             , a.curcy_code
+             , a.exc_date
+             , a.exc_rate_type
+             , a.usd_exc_rate
+             , a.loc_exc_rate
+             , a.usd_loc_rate
+             , a.due_date
+             , a.terms_date
+             , a.pymt_term
+             , a.pymt_hold_flag
+          from EAR_IF_receipt_BALANCE_V d
+             , otc_sa_head c
+             , otc_sa_detail a
+         where a.sa_no = c.sa_no
+           AND a.STL_ERP_SLIP_NO = d.RECEIPT_NUMBER
+           and a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '210403' , '210405' , '210402' , '210701' , '210499' )
+    </select>
+
+    <select id="saOwnerSettleApUnSubmitSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerSettleApUnSubmitSearch1 */
+        ]]>
+        SELECT /*+ PUSH_PRED(D) */
+             , A.STL_CNTR_ACC_CODE
+             , C.OP_TEAM_CODE
+             , C.CNTR_TEAM_CODE
+             , ACC_NAME_FUNC(A.STL_CNTR_ACC_CODE) AS STL_ACC_NAME
+             , A.CURCY_CODE AS CURRENCY_CODE
+             , (NVL(D.ENTERED_BALANCE_AMOUNT,0)- NVL(D.ENTERED_PENDING_AMOUNT,0)) AS ENTERED_AMT
+             , (NVL(D.USD_BALANCE_AMOUNT,0)- NVL(D.USD_PENDING_AMOUNT,0)) AS USD_AMT
+             , (NVL(D.KRW_BALANCE_AMOUNT,0)- NVL(D.KRW_PENDING_AMOUNT,0)) AS WON_AMT
+             , A.STL_ERP_SLIP_NO AS SLIP_NO
+             , A.STL_GL_ACC_CODE AS GL_ACCT
+             , C.SA_NO
+             , A.STL_FLAG
+             , A.STL_VSL_CODE
+             , A.STL_VOY_NO
+             , A.STL_ERP_SLIP_NO
+             , A.USD_SA_AMT
+             , A.LOC_SA_AMT
+             , A.KRW_SA_AMT
+             , A.STL_PORT_CODE
+             , A.REMARK
+             , A.CURCY_CODE
+             , A.EXC_DATE
+             , A.EXC_RATE_TYPE
+             , A.USD_EXC_RATE
+             , A.LOC_EXC_RATE
+             , A.USD_LOC_RATE
+             , A.DUE_DATE
+             , A.TERMS_DATE
+             , A.PYMT_TERM
+             , A.PYMT_HOLD_FLAG
+             , D.TRX_ID
+             , D.TRX_NUMBER
+             , D.GL_DATE
+             , D.SOURCE_SYSTEM
+             , D.SOURCE_TRX_NUMBER
+             , D.SOURCE_TRX_ITEM_NUMBER
+             , D.CURRENCY_CODE
+             , D.ENTERED_TRX_AMOUNT
+             , D.KRW_TRX_AMOUNT
+             , D.USD_TRX_AMOUNT
+             , D.DUE_DATE
+             , D.CUSTOMER_UNIQUE_ID
+             , D.CUSTOMER_NUMBER
+             , D.CUSTOMER_NAME
+             , D.COUNTRY
+             , D.PORT_CODE
+             , D.COMMENTS
+             , D.CREATED_USER
+             , D.SEGMENT1
+             , D.SEGMENT2
+             , D.SEGMENT3
+             , D.SEGMENT4
+             , D.SEGMENT5
+             , D.SEGMENT6
+             , D.SEGMENT7
+             , D.EXCHANGE_RATE_TYPE_KRW
+             , D.EXCHANGE_RATE_DATE_KRW
+             , D.EXCHANGE_RATE_KRW
+             , D.EXCHANGE_RATE_TYPE_USD
+             , D.EXCHANGE_RATE_DATE_USD
+             , D.EXCHANGE_RATE_USD
+             , D.IF_TYPE_I
+          FROM EAR_IF_TRX_BALANCE_V D, OTC_SA_HEAD C, OTC_SA_DETAIL A
+         WHERE A.SA_NO = C.SA_NO
+           AND A.STL_ERP_SLIP_NO = D.TRX_NUMBER
+           AND a.sa_no = #{saNo}
+           and a.stl_gl_acc_code IN ( '110502' , '110503' , '110599' )
+    </select>
+
+    <select id="saSettleExistSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saSettleExistSearch */
+        ]]>
+        SELECT count(*) as cnt
+          from otc_sa_detail
+         where sa_no = #{saNo}
+           and trsact_code between 'I020' and 'I053'
+    </select>
+
+    <select id="saBrokNoModify" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBrokNoModify */
+        ]]>
+        SELECT BROK_ACC_CODE
+             , BROK_ACC_CODE2
+          FROM OTC_CP_ITEM_HEAD
+         WHERE VSL_CODE = #{vslCode}
+           AND VOY_NO = #{voyNo}
+           AND CHT_IN_OUT_CODE = #{chtInOutCd}
+    </select>
+
+    <update id="saBrokNoModify1" parameterType="map"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBrokNoModify1 */
+        ]]>
+        UPDATE OTC_SA_DETAIL a
+           SET
+        <choose>
+            <when test="chkColumn == 'BROK_NO'">
+               a.BROK_NO = #{brokNo} ,
+            </when>
+            <otherwise>
+               a.BROK_NO2 = #{brokNo} ,
+            </otherwise>
+        </choose>
+               a.SYS_UPD_DATE = SYSDATE ,
+               a.SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE a.sa_no = (select b.sa_no
+                            from otc_sa_head b
+                           where b.vsl_code = #{vslCode}
+                             and b.voy_no = #{voyNo}
+                             and b.cht_in_out_code = #{chtInOutCd}
+                             and b.step_no = #{stepNo} )
+           and a.trsact_code = #{trsactCode}
+        <if test="costFlag == 'PROFIT'">
+           and a.brok_acc_code = #{brokerCode}
+        </if>
+    </update>
+
+    <select id="saBrokNoCancel" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBrokNoCancel */
+        ]]>
+        SELECT BROK_ACC_CODE
+             , BROK_ACC_CODE2
+          FROM OTC_CP_ITEM_HEAD
+         WHERE VSL_CODE = #{vslCode}
+           AND VOY_NO = #{voyNo}
+           AND CHT_IN_OUT_CODE = #{chtInCode}
+    </select>
+
+    <update id="saBrokNoCancel1" parameterType="map"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saBrokNoCancel */
+        ]]>
+        UPDATE OTC_SA_DETAIL a
+           SET
+        <choose>
+            <when test="chkColumn == 'BROK_NO'">
+                a.BROK_NO = 0
+            </when>
+            <otherwise>
+                a.BROK_NO2 = 0
+            </otherwise>
+        </choose>
+             , a.SYS_UPD_DATE = SYSDATE
+             , a.SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE
+        <choose>
+            <when test="chkColumn == 'BROK_NO'">
+                a.brok_no = #{brokNo}
+            </when>
+            <otherwise>
+                a.brok_no2 = #{brokNo}
+            </otherwise>
+        </choose>
+    </update>
+
+    <select id="saWithholdingCheckSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithholdingCheckSearch */
+        ]]>
+        SELECT count(*) as cnt
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code IN ( 'M001' , 'M002' )
+    </select>
+
+    <select id="saOffhireBunkerPriceInitSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOffhireBunkerPriceInitSelect */
+        ]]>
+        SELECT A.*
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , B.CP_DATE
+             , B.FROM_DATE
+             , B.TO_DATE
+             , B.DAY_HIRE
+             , B.HIRE_DUR
+             , B.ADDR_COMM_RATE
+          FROM OTC_CP_ITEM_HEAD A
+             , OTC_CP_ITEM_DETAIL B
+         WHERE A.CP_ITEM_NO = B.CP_ITEM_NO
+           AND A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtInCode}
+           AND B.CP_ITEM_SEQ = ( SELECT MIN( CP_ITEM_SEQ )
+                                   FROM OTC_CP_ITEM_DETAIL
+                                  WHERE CP_ITEM_NO = A.CP_ITEM_NO )
+    </select>
+
+    <select id="saOwnerACBunkerInitSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saOwnerACBunkerInitSearch */
+        ]]>
+        SELECT A.CP_ITEM_NO
+             , A.BLST_BONUS
+             , A.CVE
+             , A.VOY_NO
+             , A.APLY_TIME_FLAG
+             , A.CNTR_NO
+             , A.LAY_CAN_FROM_DATE
+             , A.CNTR_ACC_CODE
+             , A.LAY_CAN_TO_DATE
+             , A.BANK_NAT_CODE
+             , A.OP_TEAM_CODE
+             , A.WTH_TAX_FLAG
+             , A.REDLY_NOTICE1
+             , A.BROK_COMM_RATE
+             , A.REDLY_NOTICE2
+             , A.BROK_COMM_RATE2
+             , A.REDLY_NOTICE3
+             , A.FO_PRICE
+             , A.REDLY_NOTICE4
+             , A.ILOHC
+             , A.REDLY_NOTICE5
+             , A.CHT_IN_OUT_CODE
+             , A.REDLY_NOTICE6
+             , A.NAT_CODE
+             , A.REDLY_NOTICE7
+             , A.BROK_ACC_CODE
+             , A.REDLY_NOTICE8
+             , A.ADTNL_COMM_RATE
+             , A.REDLY_NOTICE9
+             , A.VSL_CODE
+             , A.REDLY_NOTICE10
+             , A.DO_PRICE
+             , A.CNTR_TEAM_CODE
+             , A.BROK_ACC_CODE2
+             , A.SYS_CRE_DATE
+             , A.SYS_CRE_USER_ID
+             , A.SYS_UPD_DATE
+             , A.SYS_UPD_USER_ID
+             , A.BANK_NAME
+             , NAT_ENG_NAME_FUNC( A.BANK_NAT_CODE ) AS BANK_NAT_NAME
+             , NAT_ENG_NAME_FUNC( A.NAT_CODE ) AS NAT_NAME
+             , TEAM_INFO_FUNC( A.OP_TEAM_CODE ) AS OP_TEAM_NAME
+             , TEAM_INFO_FUNC( A.CNTR_TEAM_CODE ) AS CNTR_TEAM_NAME
+             , ACC_NAME_FUNC( A.CNTR_ACC_CODE ) AS CNTR_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE ) AS BROK_ACC_NAME
+             , ACC_NAME_FUNC( A.BROK_ACC_CODE2 ) AS BROK_ACC_NAME2
+             , VSL_NAME_FUNC( A.VSL_CODE ) AS VSL_NAME
+             , Cntr_Name_Func( A.CNTR_NO ) AS CNTR_NAME
+             , ACC_NATION_FUNC( A.CNTR_ACC_CODE ) AS ACC_NAT_CODE
+             , NAT_ENG_NAME_FUNC( ACC_NATION_FUNC( A.CNTR_ACC_CODE ) ) AS ACC_NAT_NAME
+          FROM OTC_CP_ITEM_HEAD A
+         WHERE A.VSL_CODE = #{vslCode}
+           AND A.VOY_NO = #{voyNo}
+           AND A.CHT_IN_OUT_CODE = #{chtinCd}
+    </select>
+
+    <update id="saVatNoModify" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saVatNoModify */
+        ]]>
+        UPDATE OTC_SA_DETAIL
+           SET VAT_NO = #{vatNo}
+             , SYS_UPD_DATE = SYSDATE
+             , SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE SA_NO = #{saNo}
+           AND TRSACT_CODE = #{trsactCd}
+    </update>
+
+    <update id="saVatNoModify1" parameterType="com.pan.som.common.vo.sa.OTCSaDetailVO" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saVatNoModify */
+        ]]>
+        UPDATE OTC_SA_DETAIL
+           SET VAT_NO = #{vat_no}
+             , CONTACT_ID_1 = #{contact_id_1}
+             , CONTACT_ID_2 = #{contact_id_2}
+             , NTS_APPROVE_NUMBER = #{nts_approve_number}
+             , SYS_UPD_DATE = SYSDATE
+             , SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE SA_NO = #{sa_no}
+           AND TRSACT_CODE = #{trsact_code}
+           AND TAX_CODE_FLAG = #{tax_code_flag}
+           AND VAT_FLAG = 'Y'
+        <if test="group_seq!= 0">
+           AND GROUP_SEQ = #{group_seq}
+        </if>
+    </update>
+
+    <select id="saSaleVatSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saSaleVatSelect */
+        ]]>
+        SELECT count(*) as cnt
+          FROM OTC_SA_DETAIL A
+         WHERE A.SA_NO = #{saNo}
+           AND A.TAX_CODE_ID in ( 'VS111101' , 'VS121101' )
+           AND A.VAT_FLAG = 'Y'
+    </select>
+
+    <select id="saPurchaseVatSelect" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saPurchaseVatSelect */
+        ]]>
+        SELECT count(*) as cnt
+          FROM OTC_SA_DETAIL A
+         WHERE A.SA_NO = #{saNo}
+           AND A.TAX_CODE_ID in ( 'VP111101' , 'VP121101' )
+           AND A.VAT_FLAG = 'Y'
+    </select>
+
+    <select id="openVslSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.openVslSearch */
+        ]]>
+        SELECT distinct segment4 as vsl_code
+             , vsl_name_func( segment4 ) as vsl_name
+             , segment5 as voy_no
+          from ear_if_invoice_balance_v
+         where customer_unique_id = #{acc_code}
+           and ( nvl( usd_balance_amount , 0 ) - nvl( usd_pending_amount , 0 ) ) <![CDATA[>]]> 0
+        <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( vessel )">
+           and segment4 = #{vessel}
+        </if>
+        <if test="voy != 0">
+           and segment5 = #{voy}
+        </if>
+         union all
+        select distinct segment4 as vsl_code
+             , vsl_name_func( segment4 ) as vsl_name
+             , segment5 as voy_no
+          from ear_if_trx_balance_v
+         where customer_unique_id = #{acc_code}
+           and ( nvl( usd_balance_amount , 0 ) - nvl( usd_pending_amount , 0 ) ) &gt; 0
+        <if test="@kr.co.takeit.util.MybatisUtil@notEmpty( vessel )">
+           and segment4 = #{vessel}
+        </if>
+        <if test="voy != 0">
+           and segment5 = #{voy}
+        </if>
+    </select>
+
+    <select id="saDetailValidateTax" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saDetailValidateTax */
+        ]]>
+        SELECT count(*) cnt
+          from otc_sa_detail
+         where sa_no = #{saNo}
+    </select>
+
+    <select id="saDetailValidateTax1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saDetailValidateTax */
+        ]]>
+        SELECT count(*) cnt1
+          from otc_sa_detail
+         where sa_no = #{saNo}
+           and tax_code_id in ( 'VP111101' , 'VP121101' )
+    </select>
+
+    <select id="saDetailValidateTax2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saDetailValidateTax */
+        ]]>
+        SELECT count(*) cnt2
+          from otc_sa_detail
+         where sa_no = #{saNo}
+           and tax_code_id in ( 'VS111101' , 'VS121101' )
+    </select>
+
+    <select id="saAddCommSearch" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAddCommSearch */
+        ]]>
+        SELECT V.SA_NO
+             , V.VAT_FLAG
+             , V.ORG_VAT_NO
+             , V.SA_RATE
+             , V.USD_SA_AMT
+             , V.USD_VAT_SA_AMT
+             , V.KRW_SA_AMT
+             , V.KRW_VAT_SA_AMT
+             , V.VOY_NO
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.trsact_code = 'I054'
+    </select>
+
+    <select id="saAddCommSearch1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAddCommSearch */
+        ]]>
+        SELECT NVL(sum( V.USD_SA_AMT ), 0) as USD_SA_AMT
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.TRSACT_CODE IN ( 'I020' , 'I021' )
+    </select>
+
+    <select id="saAddCommSearch2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAddCommSearch */
+        ]]>
+        SELECT NVL(sum( V.USD_SA_AMT ), 0) as USD_SA_AMT
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.TRSACT_CODE IN ( 'I050' , 'I051' )
+    </select>
+
+    <select id="saAddCommSearch3" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAddCommSearch */
+        ]]>
+        SELECT NVL(sum(V.USD_SA_AMT), 0) as USD_SA_AMT
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.TRSACT_CODE IN ( 'I030' , 'I031' )
+    </select>
+
+    <select id="saAddCommSearch4" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saAddCommSearch */
+        ]]>
+        SELECT NVL(sum(V.USD_SA_AMT), 0) as USD_SA_AMT
+          FROM OTC_SA_DETAIL V
+         WHERE V.SA_NO = #{saNo}
+           AND V.TRSACT_CODE IN ( 'I040' , 'I041' )
+    </select>
+
+    <select id="saSettleCheck" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saSettleCheck */
+        ]]>
+        SELECT count(*) as cnt
+          FROM OTC_SA_DETAIL
+         WHERE SA_NO = #{sa_no}
+           AND TRSACT_CODE IN ( 'I020' , 'I021' , 'I030' , 'I031' , 'I032' , 'I033' , 'I034' , 'I040' , 'I041' , 'I022' , 'I050' , 'I051' , 'I052' , 'I053' , 'I054' )
+    </select>
+
+    <select id="saWithTaxCheck" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxCheck */
+        ]]>
+        SELECT count( b.sa_no ) saCnt
+          from otc_sa_detail b
+         where b.sa_no in ( select a.sa_no
+                              from otc_sa_head a
+                                 , otc_sa_detail b
+                             where a.sa_no = b.sa_no
+                               and a.vsl_code = #{vslCode}
+                               and a.voy_no = #{voyNo}
+                               and a.cht_in_out_code = #{chtInOutCode}
+                               and a.step_no = #{stepNo}
+                               and a.wth_flag = 'Y' )
+           and b.TRSACT_CODE in ( 'M001' , 'M002' , 'M004' )
+    </select>
+
+    <insert id="saWithTaxInvoiceInsert" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceInsert */
+        ]]>
+        INSERT INTO OTC_SA_DETAIL (
+             SA_NO
+             , SA_SEQ
+             , VSL_CODE
+             , VOY_NO
+             , TRSACT_CODE
+             , USD_SA_AMT
+             , LOC_SA_AMT
+             , KRW_SA_AMT
+             , CURCY_CODE
+             , EXC_DATE
+             , EXC_RATE_TYPE
+             , DUE_DATE
+             , TERMS_DATE
+             , PYMT_HOLD_FLAG
+             , PYMT_METH
+             , SA_RATE
+             , SA_RATE_DUR
+             , FACTOR
+             , VAT_FLAG
+             , TAX_RATE
+             , USD_VAT_SA_AMT
+             , LOC_VAT_SA_AMT
+             , KRW_VAT_SA_AMT
+             , BNK_QTY
+             , BNK_PRC
+             , STL_VSL_CODE
+             , STL_VOY_NO
+             , STL_CNTR_ACC_CODE
+             , USD_EXC_RATE
+             , LOC_EXC_RATE
+             , USD_LOC_RATE
+             , BANK_ACC_ID
+             , BANK_ACC_DESC
+             , SYS_CRE_DATE
+             , SYS_CRE_USER_ID
+             , SYS_UPD_DATE
+             , SYS_UPD_USER_ID
+             , GL_ACC_CODE
+             , EVIDENCE_FLAG
+        )
+        VALUES (
+             #{with_sa_no}
+             , #{with_sa_no}
+             , #{vsl_code}
+             , #{voy_no}
+             , #{income_tax_amt_usd}
+             , #{income_tax_amt_usd}
+             , #{income_tax_amt_krw}
+             , #{curcy_code}
+             , #{otcSaWithInfo}
+             , #{exc_rate_type}
+             , #{otcSaWithInfo}
+             , #{otcSaWithInfo}
+             , #{pymt_hold_flag}
+             , #{pymt_meth}
+             , 'CLEARING'
+             , #{income_tax_base_usd}
+             , #{income_tax_rate}
+             , 'N'
+             , #{vsl_code}
+             , #{voy_no}
+             , #{cntr_acc_code}
+             , #{usd_exc_rate}
+             , #{loc_exc_rate}
+             , #{usd_loc_rate}
+             , #{bank_acc_id}
+             , #{bank_acc_desc}
+             , #{_sessionUserId}
+             , #{_sessionUserId}
+             , #{gl_acc_code}
+             , #{evidence_flag}
+             , #{with_sa_no}
+             , #{with_sa_no}
+             , #{vsl_code}
+             , SYSDATE
+             , #{voy_no}
+             , SYSDATE
+             , #{inhabit_tax_amt_usd}
+             , #{inhabit_tax_amt_usd}
+             , #{inhabit_tax_amt_krw}
+        )
+    </insert>
+
+    <select id="saWithTaxInvoiceInsert3" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceInsert3 */
+        ]]>
+        SELECT sum( nvl( b.usd_sa_amt , 0 ) ) +sum( nvl( b.usd_vat_sa_amt , 0 ) ) as usd_amt
+             , sum( nvl( b.krw_sa_amt , 0 ) ) +sum( nvl( b.krw_vat_sa_amt , 0 ) ) as krw_amt
+          from otc_sa_head a, otc_sa_detail b, ccd_trsact_type_m c
+         where a.sa_no = b.sa_no
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '1'
+           and c.som_system_type ='SOMO'
+           and a.cht_in_out_code  = c.own_vsl_category
+           and b.trsact_code not in ( 'L001' , 'L002')
+           and a.sa_no = #{with_sa_no}
+    </select>
+
+    <select id="saWithTaxInvoiceInsert4" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceInsert4 */
+        ]]>
+        SELECT sum( nvl( b.usd_sa_amt , 0 ) ) +sum( nvl( b.usd_vat_sa_amt , 0 ) ) as usd_amt
+             , sum( nvl( b.krw_sa_amt , 0 ) ) +sum( nvl( b.krw_vat_sa_amt , 0 ) ) as krw_amt
+          from otc_sa_head a, otc_sa_detail b, ccd_trsact_type_m c
+         where a.sa_no = b.sa_no
+           and b.trsact_code = c.trsact_code
+           and c.o_sa_rpt_debit_credit = '2'
+           and c.som_system_type ='SOMO'
+           and a.cht_in_out_code  = c.own_vsl_category
+           and b.trsact_code not in ( 'L001' , 'L002')
+           and a.sa_no = #{with_sa_no}
+    </select>
+
+    <update id="saWithTaxInvoiceInsert5" parameterType="map"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceInsert5 */
+        ]]>
+        UPDATE OTC_SA_DETAIL
+           SET USD_SA_AMT = #{loc_amt}
+             , LOC_SA_AMT = #{loc_amt}
+             , KRW_SA_AMT = #{won_amt}
+         WHERE sa_no = #{with_sa_no}
+           AND trsact_code = #{trsact_code}
+    </update>
+
+    <update id="saWithTaxInvoiceInsert6" parameterType="com.pan.som.common.dto.sa.OTCSaWithholdingTaxDTO" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceInsert6 */
+        ]]>
+        UPDATE OTC_SA_HEAD
+           SET WTH_HIRE_BAL_AMT = #{curcy_code}
+         WHERE SA_NO = #{otcSaWithInfo}
+           AND VSL_CODE = #{exc_rate_type}
+           AND VOY_NO = #{otcSaWithInfo}
+           AND STEP_NO = #{otcSaWithInfo}
+    </update>
+
+    <delete id="saWithTaxInvoiceDelete" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceDelete */
+        ]]>
+        DELETE
+          FROM OTC_SA_DETAIL
+         WHERE SA_NO = #{saNo}
+           AND VSL_CODE = #{vslCode}
+           AND VOY_NO = #{voyNo}
+           AND TRSACT_CODE IN ( 'M001' , 'M002' , 'M004' )
+    </delete>
+
+    <update id="saWithTaxInvoiceDelete1" parameterType="com.pan.som.common.dto.sa.OTCSaHeadDTO" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saWithTaxInvoiceDelete */
+        ]]>
+        UPDATE OTC_SA_HEAD
+           SET WTH_HIRE_BAL_AMT = #{wth_hire_bal_amt}
+         WHERE SA_NO = #{sa_no}
+           AND VSL_CODE = #{vsl_code}
+           AND VOY_NO = #{voy_no}
+           AND STEP_NO = #{step_no}
+    </update>
+
+    <select id="saHeadWthHireBalReuceRateUpdate" parameterType="com.pan.som.common.vo.sa.OTCSaHeadVO" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saHeadWthHireBalReuceRateUpdate */
+        ]]>
+        SELECT count( a.sa_no ) saCnt
+          from otc_sa_head a
+             , otc_sa_detail b
+         where a.sa_no = b.sa_no
+           and a.sa_no = #{sa_no}
+           and a.wth_flag = 'Y'
+           and a.cht_in_out_code = 'T'
+           and a.cancel_flag = 'N'
+           and b.trsact_code in ( 'A001' , 'A002' , 'A006' , 'A007' , 'G001' , 'G002' , 'G003' , 'G004' , 'H001' , 'H002' , 'H009' , 'H010' , 'H005' , 'H011' , 'I003' , 'I004' , 'I005' , 'I071' , 'I072' , 'I073' )
+    </select>
+
+    <update id="saHeadWthHireBalReuceRateUpdate1" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.saHeadWthHireBalReuceRateUpdate1 */
+        ]]>
+        UPDATE OTC_SA_HEAD
+           SET WTH_HIRE_BAL_REDUCE_RATE = #{wth_hire_bal_reduce_rate}
+         WHERE SA_NO = #{sa_no}
+           AND VSL_CODE = #{vsl_code}
+           AND VOY_NO = #{voy_no}
+           AND STEP_NO = #{step_no}
+           AND CHT_IN_OUT_CODE = #{cht_in_out_code}
+    </update>
+
+    <update id="courtAdmitNoUpdate" parameterType="map" timeout="0">
+        <![CDATA[
+        /* OTCSADetail.courtAdmitNoUpdate */
+        ]]>
+        UPDATE OTC_SA_DETAIL
+           SET COURT_FLAG = #{court_flag}
+             , COURT_ADMIT_NO = #{court_admit_no}
+             , SYS_UPD_DATE = SYSDATE
+             , SYS_UPD_USER_ID = #{_sessionUserId}
+         WHERE SA_NO = #{sa_no}
+           AND TRSACT_CODE IN ( 'L001' )
+    </update>
+
+    <select id="soaVsCBDurationCheck" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.SoaVsCBDurationCheck */
+        ]]>
+        SELECT M.DIVIDED_GROUP
+             , M.TRSACT_CODE
+             , TRSACT_NAME_FUNC( 'SOMO'
+             , 'T'
+             , M.TRSACT_CODE ) TRSACT_NAME
+             , M.FAIL_ITEM
+             , M.PASS_ITEM
+          FROM ( SELECT T.DIVIDED_GROUP
+                      , T.TRSACT_CODE
+                      , MAX( T.FAIL_ITEM ) FAIL_ITEM
+                      , MAX( T.PASS_ITEM ) PASS_ITEM
+                   FROM ( SELECT K.DIVIDED_GROUP
+                               , K.TRSACT_CODE
+                               , DECODE( K.IS_VALID , 'FAIL' , 'FAIL' , '' ) AS FAIL_ITEM
+                               , DECODE( K.IS_VALID , 'PASS' , 'PASS' , '' ) AS PASS_ITEM
+                            FROM ( SELECT S.DIVIDED_GROUP
+                                        , S.TRSACT_CODE
+                                        , S.IS_VALID
+                                     FROM ( SELECT SS.DIVIDED_GROUP
+                                                 , SS.TRSACT_CODE
+                                                 , SS.RECALC_FROM_DATE
+                                                 , SS.RECALC_TO_DATE
+                                                 , SS.VOY_STRT_DATE
+                                                 , SS.VOY_END_DATE
+                                                 , CASE WHEN ( ( SS.RECALC_FROM_DATE <![CDATA[>=]]> SS.VOY_STRT_DATE
+                                               and SS.RECALC_FROM_DATE <![CDATA[<=]]> SS.VOY_END_DATE )
+                                       or ( SS.RECALC_TO_DATE <![CDATA[>=]]> SS.VOY_STRT_DATE
+                                      and SS.RECALC_TO_DATE <![CDATA[<=]]> SS.VOY_END_DATE )
+                              or ( SS.VOY_STRT_DATE <![CDATA[>=]]> SS.RECALC_FROM_DATE
+                             and SS.VOY_STRT_DATE <![CDATA[<=]]> SS.RECALC_TO_DATE )
+                     or ( SS.VOY_END_DATE <![CDATA[>=]]> SS.RECALC_FROM_DATE
+                    and SS.VOY_END_DATE <![CDATA[<=]]> SS.RECALC_TO_DATE ) )
+                    THEN 'PASS' WHEN ( SS.RECALC_FROM_DATE IS NULL
+            OR SS.RECALC_TO_DATE IS NULL )
+                    THEN 'PASS'
+               ELSE 'FAIL'
+                END IS_VALID
+          FROM ( SELECT ZZ.DIVIDED_GROUP
+                      , ZZ.TRSACT_CODE
+                      , ZZ.RECALC_FROM_DATE
+                      , ZZ.RECALC_TO_DATE
+                      , CASE WHEN ( ZZ.SOA_TO_CB_STRT_DIFF <![CDATA[<]]> 0
+                    AND ZZ.SOA_TO_CB_STRT_DIFF <![CDATA[>=]]> -0.5 )
+                    THEN DECODE( CNT , 0 , ZZ.VOY_STRT_DATE - 0.5 , ZZ.VOY_STRT_DATE )
+               ELSE ZZ.VOY_STRT_DATE
+                END VOY_STRT_DATE
+             , CASE WHEN ( ZZ.SOA_FROM_CB_END_DIFF <![CDATA[>]]> 0
+           AND ZZ.SOA_FROM_CB_END_DIFF <![CDATA[<=]]> 0.5 )
+                    THEN DECODE( CNT , 0 , ZZ.VOY_END_DATE +0.5 , ZZ.VOY_END_DATE )
+               ELSE ZZ.VOY_END_DATE
+                END VOY_END_DATE
+          FROM ( SELECT Z.DIVIDED_GROUP
+                      , Z.TRSACT_CODE
+                      , Z.RECALC_FROM_DATE
+                      , Z.RECALC_TO_DATE
+                      , Z.VOY_STRT_DATE
+                      , Z.VOY_END_DATE
+                      , DECODE( Z.RECALC_FROM_DATE , NULL , 0 , SOA_CB_DURATION_INCLUDE_CNT( Z.CNTR_NO , Z.RECALC_FROM_DATE , Z.RECALC_TO_DATE ) ) AS CNT
+             , ( Z.RECALC_TO_DATE - Z.VOY_STRT_DATE ) as SOA_TO_CB_STRT_DIFF
+             , ( Z.RECALC_FROM_DATE - Z.VOY_END_DATE ) as SOA_FROM_CB_END_DIFF
+          FROM ( SELECT SOA.CNTR_NO
+                      , SOA.TRSACT_CODE
+                      , to_date( to_char( SOA.RECALC_FROM_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) RECALC_FROM_DATE
+                      , to_date( to_char( SOA.RECALC_TO_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) RECALC_TO_DATE
+                      , SOA.DIVIDED_GROUP
+                      , to_date( to_char( CB.VOY_STRT_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) as VOY_STRT_DATE
+                      , to_date( to_char( CB.VOY_END_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) as VOY_END_DATE
+                      , CB.VOYAGE_FLAG
+                   FROM ( SELECT H.SA_NO
+                               , H.VSL_CODE
+                               , H.VOY_NO
+                               , DECODE( H.CHT_IN_OUT_CODE , 'T' , 'T' , 'C' , 'T' , 'O' ) AS CHT_IN_OUT_CODE
+                               , H.STEP_NO
+                               , H.CNTR_NO
+                               , D.TRSACT_CODE
+                               , D.SA_RATE_DUR
+                               , D.LOC_SA_AMT
+                               , D.USD_SA_AMT
+                               , D.KRW_SA_AMT
+                               , D.FROM_DATE
+                               , D.TO_DATE
+                               , CASE WHEN( D.FROM_DATE <![CDATA[<=]]> D.TO_DATE )
+                                     THEN D.FROM_DATE
+                                     ELSE D.TO_DATE
+                                 END RECALC_FROM_DATE
+                      , CASE WHEN( D.FROM_DATE <![CDATA[<=]]> D.TO_DATE )
+                            THEN D.TO_DATE
+                            ELSE D.FROM_DATE
+                        END RECALC_TO_DATE
+             , ROWNUM AS DIVIDED_GROUP
+          FROM OTC_SA_HEAD H
+             , OTC_SA_DETAIL D
+         WHERE H.SA_NO = D.SA_NO
+           AND H.STEP_NO <![CDATA[<>]]> 0
+           AND D.TRSACT_CODE IN ( 'A006' , 'A007' , 'A008' , 'A009' , 'H009' , 'H010' , 'I071' , 'I072' , 'I073' , 'A003' )
+           AND D.USD_SA_AMT <![CDATA[<>]]> 0
+           AND H.VSL_CODE = #{vslCode}
+           AND H.VOY_NO = #{VoyNo}
+           AND H.CHT_IN_OUT_CODE = #{chtInOut}
+           AND H.STEP_NO = #{stepNo} ) SOA
+             , CB_ALL_VOY_INFO_ADJUST_V CB
+         WHERE SOA.VSL_CODE = CB.VSL_CODE
+           AND SOA.CHT_IN_OUT_CODE = CB.VOYAGE_FLAG
+           AND SOA.CNTR_NO = CB.CNTR_NO ) Z ) ZZ ) SS ) S
+         GROUP BY S.DIVIDED_GROUP
+             , S.TRSACT_CODE
+             , S.IS_VALID
+         ORDER BY S.DIVIDED_GROUP
+             , S.TRSACT_CODE
+             , S.IS_VALID ) K ) T
+         GROUP BY T.DIVIDED_GROUP
+             , T.TRSACT_CODE
+         ORDER BY T.DIVIDED_GROUP
+             , T.TRSACT_CODE ) M
+         WHERE M.FAIL_ITEM = 'FAIL'
+           AND M.PASS_ITEM IS NULL
+         ORDER BY M.DIVIDED_GROUP
+             , M.TRSACT_CODE
+    </select>
+
+    <select id="soaVsCBAmtCheck" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.SoaVsCBAmtCheck */
+        ]]>
+        SELECT A.DEVIDED_GROUP -- 배분된 GROUP KEY
+             , MAX( A.VOY_NO ) VOY_NO -- LAST 항차 의미 (조정할 대상 항차)
+             , MAX( A.TRSACT_CODE ) TRSACT_CODE
+             , MAX( A.ORI_SA_RATE_DUR ) ORI_SA_RATE_DUR
+             , MAX( A.ORI_USD_SA_AMT ) ORI_USD_SA_AMT
+             , MAX( A.ORI_LOC_SA_AMT ) ORI_LOC_SA_AMT
+             , MAX( A.ORI_KRW_SA_AMT ) ORI_KRW_SA_AMT
+             , SUM( A.SA_RATE_DUR ) DIVIDED_SA_RATE_DUR
+             , SUM( A.USD_SA_AMT ) DIVIDED_USD_SA_AMT
+             , SUM( A.LOC_SA_AMT ) DIVIDED_LOC_SA_AMT
+             , SUM( A.KRW_SA_AMT ) DIVIDED_KRW_SA_AMT
+             , MAX( A.ORI_SA_RATE_DUR ) - SUM( A.SA_RATE_DUR ) as DIFF_RATE_DUR
+             , MAX( A.ORI_USD_SA_AMT ) - SUM( A.USD_SA_AMT ) as USD_DIFF_AMT
+             , MAX( A.ORI_LOC_SA_AMT ) - SUM( A.LOC_SA_AMT ) as LOC_DIFF_AMT
+             , MAX( A.ORI_KRW_SA_AMT ) - SUM( A.KRW_SA_AMT ) as KRW_DIFF_AMT
+          FROM OTC_SA_CB_DETAIL A
+         WHERE SA_NO = #{saNo}
+           AND A.TRSACT_CODE IN ( 'A006' , 'A007' , 'A008' , 'A009' , 'H009' , 'H010' , 'A003'
+                                <!--
+                                SPEED CLAIM 은 실채산 VOY_NO 를 직접 입력하므로,,
+                                채산항차로 배분하지 않는다 ( hijang 2015.01.05 )
+                                , 'I071', 'I072', 'I073'
+                                -->
+                                )
+         GROUP BY A.DEVIDED_GROUP
+    </select>
+
+    <select id="soaVsCBContractVslCheck" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.SoaVsCBContractVslCheck */
+        ]]>
+        SELECT COUNT(*) CNT
+          FROM CB_ALL_VOY_INFO_ADJUST_V A
+         WHERE A.VSL_CODE = #{vslCode}
+           AND A.CNTR_NO = #{contractNo}
+    </select>
+
+    <select id="soaCbDetailDivide" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.soaCbDetailDivide */
+        ]]>
+        SELECT DISTINCT A.VSL_CODE
+             , A.VOY_NO
+             , A.CHT_IN_OUT_CODE
+             , A.STEP_NO
+             , A.CNTR_NO
+             , A.SA_NO
+          FROM OTC_SA_HEAD A
+             , OTC_SA_DETAIL B
+         WHERE A.SA_NO = B.SA_NO
+           AND nvl( a.cancel_flag , 'N' ) <![CDATA[<>]]> 'Y'
+           AND A.STEP_NO <![CDATA[<>]]> 0
+           AND TO_CHAR( a.posting_date , 'YYYYMMDD' ) BETWEEN #{start_date} AND #{start_date}
+           AND A.SA_NO not in ( SELECT m.SA_NO
+                                  FROM OTC_SA_EXCEPT_LIST_TMP m
+                                 WHERE NVL( ATTRIBUTE5 , 'N' ) = 'Y' )
+    </select>
+
+    <select id="soaVsCBAmtCheck2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.SoaVsCBAmtCheck2 */
+        ]]>
+        SELECT A.DEVIDED_GROUP -- 배분된 GROUP KEY
+             , MAX( A.VOY_NO ) VOY_NO -- LAST 항차 의미 (조정할 대상 항차)
+             ,  MAX( A.TRSACT_CODE ) TRSACT_CODE
+             , MAX( A.ORI_SA_RATE_DUR ) ORI_SA_RATE_DUR
+             , MAX( A.ORI_USD_SA_AMT ) ORI_USD_SA_AMT
+             , MAX( A.ORI_LOC_SA_AMT ) ORI_LOC_SA_AMT
+             , MAX( A.ORI_KRW_SA_AMT ) ORI_KRW_SA_AMT
+             , SUM( A.SA_RATE_DUR ) DIVIDED_SA_RATE_DUR
+             , SUM( A.USD_SA_AMT ) DIVIDED_USD_SA_AMT
+             , SUM( A.LOC_SA_AMT ) DIVIDED_LOC_SA_AMT
+             , SUM( A.KRW_SA_AMT ) DIVIDED_KRW_SA_AMT
+             , MAX( A.ORI_SA_RATE_DUR ) - SUM( A.SA_RATE_DUR ) as DIFF_RATE_DUR
+             , MAX( A.ORI_USD_SA_AMT ) - SUM( A.USD_SA_AMT ) as USD_DIFF_AMT
+             , MAX( A.ORI_LOC_SA_AMT ) - SUM( A.LOC_SA_AMT ) as LOC_DIFF_AMT
+             , MAX( A.ORI_KRW_SA_AMT ) - SUM( A.KRW_SA_AMT ) as KRW_DIFF_AMT
+          FROM OTC_SA_CB_DETAIL_UPLOAD A
+         WHERE SA_NO = #{saNo}
+           AND A.TRSACT_CODE IN ( 'A006' , 'A007' , 'A008' , 'A009' , 'H009' , 'H010' , 'A001' , 'A002' , 'A004' , 'A005' , 'H001' , 'H002' , 'A003'
+                                <!--
+                                SPEED CLAIM 은 실채산 VOY_NO 를 직접 입력하므로,,
+                                채산항차로 배분하지 않는다 ( hijang 2015.01.05 )
+                                , 'I071', 'I072', 'I073'
+                                -->
+                                )
+         GROUP BY A.DEVIDED_GROUP
+    </select>
+
+    <select id="soaVsCBDurationCheck2" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.SoaVsCBDurationCheck2 */
+        ]]>
+        SELECT M.DIVIDED_GROUP
+             , M.TRSACT_CODE
+             , TRSACT_NAME_FUNC( 'SOMO'
+             , 'T'
+             , M.TRSACT_CODE ) TRSACT_NAME
+             , M.FAIL_ITEM
+             , M.PASS_ITEM
+          FROM ( SELECT T.DIVIDED_GROUP
+                      , T.TRSACT_CODE
+                      , MAX( T.FAIL_ITEM ) FAIL_ITEM
+                      , MAX( T.PASS_ITEM ) PASS_ITEM
+                   FROM ( SELECT K.DIVIDED_GROUP
+                               , K.TRSACT_CODE
+                               , DECODE( K.IS_VALID , 'FAIL' , 'FAIL' , '' ) AS FAIL_ITEM
+                               , DECODE( K.IS_VALID , 'PASS' , 'PASS' , '' ) AS PASS_ITEM
+                            FROM ( SELECT S.DIVIDED_GROUP
+                                        , S.TRSACT_CODE
+                                        , S.IS_VALID
+                                     FROM ( SELECT SS.DIVIDED_GROUP
+                                                 , SS.TRSACT_CODE
+                                                 , SS.RECALC_FROM_DATE
+                                                 , SS.RECALC_TO_DATE
+                                                 , SS.VOY_STRT_DATE
+                                                 , SS.VOY_END_DATE
+                                                 , CASE WHEN ( ( SS.RECALC_FROM_DATE <![CDATA[>=]]> SS.VOY_STRT_DATE
+                                               and SS.RECALC_FROM_DATE <![CDATA[<=]]> SS.VOY_END_DATE )
+                                       or ( SS.RECALC_TO_DATE <![CDATA[>=]]> SS.VOY_STRT_DATE
+                                      and SS.RECALC_TO_DATE <![CDATA[<=]]> SS.VOY_END_DATE )
+                              or ( SS.VOY_STRT_DATE <![CDATA[>=]]> SS.RECALC_FROM_DATE
+                             and SS.VOY_STRT_DATE <![CDATA[<=]]> SS.RECALC_TO_DATE )
+                     or ( SS.VOY_END_DATE <![CDATA[>=]]> SS.RECALC_FROM_DATE
+                    and SS.VOY_END_DATE <![CDATA[<=]]> SS.RECALC_TO_DATE ) )
+                    THEN 'PASS' WHEN ( SS.RECALC_FROM_DATE IS NULL
+            OR SS.RECALC_TO_DATE IS NULL )
+                    THEN 'PASS'
+               ELSE 'FAIL'
+                END IS_VALID
+          FROM ( SELECT ZZ.DIVIDED_GROUP
+                      , ZZ.TRSACT_CODE
+                      , ZZ.RECALC_FROM_DATE
+                      , ZZ.RECALC_TO_DATE
+                      , CASE WHEN ( ZZ.SOA_TO_CB_STRT_DIFF <![CDATA[<]]> 0
+                    AND ZZ.SOA_TO_CB_STRT_DIFF <![CDATA[>=]]> -0.5 )
+                    THEN DECODE( CNT , 0 , ZZ.VOY_STRT_DATE - 0.5 , ZZ.VOY_STRT_DATE )
+               ELSE ZZ.VOY_STRT_DATE
+                END VOY_STRT_DATE
+             , CASE WHEN ( ZZ.SOA_FROM_CB_END_DIFF <![CDATA[>]]> 0
+           AND ZZ.SOA_FROM_CB_END_DIFF <![CDATA[<=]]> 0.5 )
+                    THEN DECODE( CNT , 0 , ZZ.VOY_END_DATE +0.5 , ZZ.VOY_END_DATE )
+               ELSE ZZ.VOY_END_DATE
+                END VOY_END_DATE
+          FROM ( SELECT Z.DIVIDED_GROUP
+                      , Z.TRSACT_CODE
+                      , Z.RECALC_FROM_DATE
+                      , Z.RECALC_TO_DATE
+                      , Z.VOY_STRT_DATE
+                      , Z.VOY_END_DATE
+                      , DECODE( Z.RECALC_FROM_DATE , NULL , 0 , SOA_CB_DURATION_INCLUDE_CNT( Z.CNTR_NO , Z.RECALC_FROM_DATE , Z.RECALC_TO_DATE ) ) AS CNT
+             , ( Z.RECALC_TO_DATE - Z.VOY_STRT_DATE ) as SOA_TO_CB_STRT_DIFF
+             , ( Z.RECALC_FROM_DATE - Z.VOY_END_DATE ) as SOA_FROM_CB_END_DIFF
+          FROM ( SELECT SOA.CNTR_NO
+                      , SOA.TRSACT_CODE
+                      , to_date( to_char( SOA.RECALC_FROM_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) RECALC_FROM_DATE
+                      , to_date( to_char( SOA.RECALC_TO_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) RECALC_TO_DATE
+                      , SOA.DIVIDED_GROUP
+                      , to_date( to_char( CB.VOY_STRT_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) as VOY_STRT_DATE
+                      , to_date( to_char( CB.VOY_END_DATE , 'yyyymmddhh24mi' ) , 'yyyymmddhh24miss' ) as VOY_END_DATE
+                      , CB.VOYAGE_FLAG
+                   FROM ( SELECT H.SA_NO
+                               , H.VSL_CODE
+                               , H.VOY_NO
+                               , DECODE( H.CHT_IN_OUT_CODE , 'T' , 'T' , 'C' , 'T' , 'O' ) AS CHT_IN_OUT_CODE
+                               , H.STEP_NO
+                               , H.CNTR_NO
+                               , D.TRSACT_CODE
+                               , D.SA_RATE_DUR
+                               , D.LOC_SA_AMT
+                               , D.USD_SA_AMT
+                               , D.KRW_SA_AMT
+                               , D.FROM_DATE
+                               , D.TO_DATE
+                               , CASE WHEN( D.FROM_DATE <![CDATA[<=]]> D.TO_DATE )
+                             THEN D.FROM_DATE
+                        ELSE D.TO_DATE
+                         END RECALC_FROM_DATE
+                      , CASE WHEN( D.FROM_DATE <![CDATA[<=]]> D.TO_DATE )
+                    THEN D.TO_DATE
+               ELSE D.FROM_DATE
+                END RECALC_TO_DATE
+             , ROWNUM AS DIVIDED_GROUP
+          FROM OTC_SA_HEAD H
+             , OTC_SA_DETAIL D
+         WHERE H.SA_NO = D.SA_NO
+           AND H.STEP_NO <![CDATA[<>]]> 0
+           AND D.TRSACT_CODE IN ( 'A006' , 'A007' , 'A008' , 'A009' , 'H009' , 'H010' , 'I071' , 'I072' , 'I073' , 'A001' , 'A002' , 'A004' , 'A005' , 'H001' , 'H002' , 'I003' , 'I004' , 'I005' )
+           AND D.USD_SA_AMT <![CDATA[<>]]> 0
+           AND H.VSL_CODE = #{vslCode}
+           AND H.VOY_NO = #{VoyNo}
+           AND H.CHT_IN_OUT_CODE = #{chtInOut}
+           AND H.STEP_NO = #{stepNo} ) SOA
+             , CB_ALL_VOY_INFO_ADJUST_V CB
+         WHERE SOA.VSL_CODE = CB.VSL_CODE
+           AND SOA.CHT_IN_OUT_CODE = CB.VOYAGE_FLAG
+           AND SOA.CNTR_NO = CB.CNTR_NO ) Z ) ZZ ) SS ) S
+         GROUP BY S.DIVIDED_GROUP
+             , S.TRSACT_CODE
+             , S.IS_VALID
+         ORDER BY S.DIVIDED_GROUP
+             , S.TRSACT_CODE
+             , S.IS_VALID ) K ) T
+         GROUP BY T.DIVIDED_GROUP
+             , T.TRSACT_CODE
+         ORDER BY T.DIVIDED_GROUP
+             , T.TRSACT_CODE ) M
+         WHERE M.FAIL_ITEM = 'FAIL'
+           AND M.PASS_ITEM IS NULL
+         ORDER BY M.DIVIDED_GROUP
+             , M.TRSACT_CODE
+    </select>
+
+    <select id="getCBmaxVoyNo" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.getCBmaxVoyNo */
+        ]]>
+        SELECT max( a.VSL_CODE ) cb_vsl_code
+             , max( a.VOY_NO ) cb_voy
+             , b.cntr_no
+             , b.cht_in_out_code
+             , b.vsl_code sa_vsl_code
+             , b.voy_no
+          from CB_ALL_VOY_INFO_ADJUST_V a
+             , otc_sa_head b
+         where a.VSL_CODE(+) = b.vsl_code
+           and a.CNTR_NO(+) = b.cntr_no
+           and a.VOYAGE_FLAG(+) = decode( b.cht_in_out_code , 'T' , 'T' , 'O' )
+           and b.VSL_CODE = #{vslCode}
+           and b.CNTR_NO = #{cntrNo}
+           and b.cht_in_out_code = #{chtInOut}
+         group by b.cntr_no
+             , b.cht_in_out_code
+             , b.vsl_code
+             , b.voy_no
+    </select>
+
+    <select id="isBallastPendingAmt" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.isBallastPendingAmt */
+        ]]>
+        SELECT TRX_NUMBER
+          from EAR_IF_TRX_BALANCE_V
+         where SOURCE_SYSTEM = 'SOMO'
+           AND gl_date <![CDATA[<=]]> to_date( #{posting_date} , 'yyyymmdd' )
+           AND SUBSTR( IF_TYPE_ID , 3 , 5 ) = 'J010'
+           AND SEGMENT3 = '110902'
+           AND SEGMENT4 = #{vslCode}
+           and source_trx_number in ( select T.SA_NO
+                                        from otc_sa_head T
+                                       WHERE T.CNTR_NO IN ( select M.CNTR_NO
+                                                              from otc_sa_head m
+                                                             where m.sa_no = #{saNo} ) )
+                                         AND ( nvl( ENTERED_BALANCE_AMOUNT , 0 ) - nvl( ENTERED_PENDING_AMOUNT , 0 ) ) <![CDATA[<>]]> 0
+    </select>
+
+    <select id="isBallastPendingAmt1" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.isBallastPendingAmt1 */
+        ]]>
+        select count(*) as item_cnt
+          from OTC_SA_DETAIL
+         where SA_NO = #{saNo}
+           AND TRSACT_CODE = 'I030'
+           AND STL_ERP_SLIP_NO = #{v_trx_number}
+    </select>
+
+    <select id="getOnHireMinFromDate" parameterType="map" resultType="map" useCache="false"  timeout="0">
+        <![CDATA[
+        /* OTCSADetail.getOnHireMinFromDate */
+        ]]>
+        SELECT TO_CHAR( MIN( A.FROM_DATE ) , 'YYYYMMDD' ) MIN_FROM_DATE
+          FROM OTC_SA_DETAIL A
+         WHERE A.SA_NO = #{saNo}
+           AND A.TRSACT_CODE IN ( 'A006' )
+           AND A.USD_SA_AMT <![CDATA[<>]]> 0
+         GROUP BY A.TRSACT_CODE
+    </select>
+</mapper>

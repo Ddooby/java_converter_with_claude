@@ -3,7 +3,6 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
-from .analyzer import PatternAnalyzer
 from .converter import EjbConverter
 
 logging.basicConfig(
@@ -20,21 +19,25 @@ def cli():
 
 
 @cli.command()
-def learn():
-    """samples/ 폴더의 AS-IS/TO-BE 쌍으로 변환 패턴을 학습합니다."""
-    console.print("[bold cyan]패턴 학습 시작...[/]")
-    analyzer = PatternAnalyzer()
-    patterns = analyzer.analyze()
-    console.print(f"[bold green]학습 완료! 패턴 항목 수: {len(patterns)}[/]")
+def patterns():
+    """patterns/learned_patterns.json 내용을 요약 출력합니다."""
+    ejb_converter = EjbConverter()
+    try:
+        p = ejb_converter._load_patterns()
+        console.print("[bold green]패턴 파일 로드 성공![/]")
+        for key, val in p.items():
+            count = len(val) if isinstance(val, list) else "-"
+            console.print(f"  {key}: {count}개")
+    except FileNotFoundError as e:
+        console.print(f"[bold red]{e}[/]")
 
 
 @cli.command()
-@click.option("--relearn", is_flag=True, help="패턴 캐시를 무시하고 재학습")
-def convert(relearn: bool):
+def convert():
     """input/ 폴더의 EJB 파일을 Spring 코드로 변환합니다."""
     console.print("[bold cyan]변환 시작...[/]")
     ejb_converter = EjbConverter()
-    converted = ejb_converter.convert_all(force_relearn=relearn)
+    converted = ejb_converter.convert_all()
     console.print(f"[bold green]변환 완료! {len(converted)}개 파일 → output/[/]")
     for path in converted:
         console.print(f"  [green]✓[/] {path}")
