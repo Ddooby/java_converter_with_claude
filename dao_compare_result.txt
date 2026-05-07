@@ -1,0 +1,33 @@
+Business   : C:\Projects\somSecond\SOM_Business_Basic\ejbModule\com\stx\som\business\dao\erp
+Common     : C:\Projects\somSecond\SOM_Common\CommonFnDaoSource\com\stx\som\business\dao\erp
+Git 1차 전환 : C:\Projects\Panocean\src\main\java\com\pan\som\dao\erp
+
+[Business+Common에 있고 Git 1차 전환에 없는 파일 - 2개]
+  EARCustomerIntVDAO.java                            [SOM_BUSINESS]
+  EARCustomerVendorVDAO.java                         [SOM_COMMON]
+
+[Git 1차 전환에만 있는 파일 - 2개]
+  ErpEARCustomerVendorVDAO.java
+  ErpFunctionDAO.java
+
+[공통 파일 - 20개]
+  EARBankAccountVDAO.java
+  EARCurrencyCodeVDAO.java
+  EARCustomerRecVDAO.java
+  EARExchangeRateTypeVDAO.java
+  EARIfHeadersAllDAO.java
+  EARIfInvoiceBalanceVDAO.java
+  EARIfLinesAllDAO.java
+  EARIfReceiptBalanceVDAO.java
+  EARIfTrxBalanceVDAO.java
+  EARIfTrxTypeDAO.java
+  EARPaymentTermVDAO.java
+  EARVendorBankAccountVDAO.java
+  EGLDepartmentVDAO.java
+  ELTTaxXmlDAO.java
+  GLDailyRatesVDAO.java
+  GLPeriodStatusesDAO.java
+  OFFAccountDAO.java
+  RCMAgentPrtInfoDAO.java
+  RCMHarbourLimitCntrMDAO.java
+  RCMHarbourLimitCntrTariffDAO.java
