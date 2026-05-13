@@ -64,6 +64,14 @@ class DaoTransformer:
         (r'import\s+java\.rmi\.RemoteException\s*;\n?', ''),
         # DbWrap 선언 제거
         (r'\bDbWrap\s+\w+\s*=\s*new\s+DbWrap\(\)\s*;', ''),
+        # dbWrap.getXxx → commonDao.getXxx
+        (r'\bdbWrap\.getInt\b', 'commonDao.getInt'),
+        (r'\bdbWrap\.getLong\b', 'commonDao.getLong'),
+        (r'\bdbWrap\.getString\b', 'commonDao.getString'),
+        (r'\bdbWrap\.getObject\b', 'commonDao.getObject'),
+        (r'\bdbWrap\.getObjects\b', 'commonDao.getObjects'),
+        (r'\bdbWrap\.updateQuery\b', 'commonDao.updateQuery'),
+        (r'\bdbWrap\.isExist\b', 'commonDao.isExist'),
         # Logger 필드 선언 제거 (@Slf4j 로 대체)
         (r'private\s+\w*\s*Logger\s+\w+\s*=\s*Logger\.getLogger\([^;]+\)\s*;', ''),
         # StringBuffer → StringBuilder
@@ -95,10 +103,20 @@ class DaoTransformer:
         (r'\buserBean\.', 'userInfo.'),
         # STXException → UxbBizException (일반 치환)
         (r'\bSTXException\b', 'UxbBizException'),
+        # RowStatus: Formatter.nullTrim(x.getStatus()).equals(...) → x.getStatus() == DataSetRowStatus.XXX
+        (r'Formatter\.nullTrim\((\w+)\.getStatus\(\)\)\s*\.equals\s*\(\s*"insert"\s*\)', r'\1.getStatus() == DataSetRowStatus.INSERT'),
+        (r'Formatter\.nullTrim\((\w+)\.getStatus\(\)\)\s*\.equals\s*\(\s*"update"\s*\)', r'\1.getStatus() == DataSetRowStatus.UPDATE'),
+        (r'Formatter\.nullTrim\((\w+)\.getStatus\(\)\)\s*\.equals\s*\(\s*"delete"\s*\)', r'\1.getStatus() == DataSetRowStatus.DELETE'),
         # RowStatus: getStatus().equals(...) → DataSetRowStatus
         (r'\.getStatus\(\)\s*\.equals\s*\(\s*"insert"\s*\)', '.getRowStatus() == DataSetRowStatus.INSERT'),
         (r'\.getStatus\(\)\s*\.equals\s*\(\s*"update"\s*\)', '.getRowStatus() == DataSetRowStatus.UPDATE'),
         (r'\.getStatus\(\)\s*\.equals\s*\(\s*"delete"\s*\)', '.getRowStatus() == DataSetRowStatus.DELETE'),
+        # CommonDao 로컬 인스턴스 생성 제거
+        (r'[ \t]*CommonDao\s+\w+\s*=\s*new\s+CommonDao\(\)\s*;\n?', ''),
+        # 로컬 comDao.xxx → commonDao.xxx
+        (r'\bcomDao\.', 'commonDao.'),
+        # 단독 defaultUpdate/defaultInsert/defaultDelete → commonDao.xxx
+        (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete)\b', r'commonDao.\1'),
         # Formatter.nullTrim(rs.getString("X")) 조합 우선 처리 → Formatter.nullTrim(String.valueOf(map.get("X")))
         (r'\bFormatter\.nullTrim\(\s*rs\d*\.getString\("(\w+)"\)\s*\)',
          r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
@@ -180,6 +198,12 @@ class DaoTransformer:
 
     def transform(self, code: str) -> tuple[str, str]:
         code = self._apply_line_rules(code)
+        if 'DataSetRowStatus' in code and 'import kr.co.takeit.spring.DataSetRowStatus' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import kr.co.takeit.spring.DataSetRowStatus;\n',
+                code, count=1
+            )
         code = self._add_class_decorations(code)
         code, xml_entries = self._convert_execute_queries(code)
         code = self._replace_self_dao_refs(code)
@@ -447,6 +471,8 @@ class DaoTransformer:
         result_code = re.sub(r'^[ \t]*\bint\s+i\s*=\s*\d+\s*;\n?', '', result_code, flags=re.MULTILINE)
         # sb.append 제거 후 남은 빈 if/else-if 블록 정리 (한 줄 조건 한정)
         result_code = re.sub(r'[ \t]*(?:else\s+)?if\b[^\n{]*\{\s*\}\s*\n?', '', result_code)
+        # sb.append 제거 후 남은 빈 else 블록 정리
+        result_code = re.sub(r'[ \t]*else\s*\{\s*\}\s*\n?', '', result_code)
 
         # } else { throw ... } 패턴에서 else-throw 블록만 제거, 닫는 } 는 보존
         result_code = re.sub(
@@ -510,6 +536,10 @@ class DaoTransformer:
 
         else_m = re.search(r'\}\s*else\s*\{', after_init)
         if else_m is None:
+            return None
+
+        # else if 가 있으면 3분기 → _find_multi_branch_choose 에서 처리
+        if re.search(r'\}\s*else\s+if\s*\(', after_init[:else_m.start()]):
             return None
 
         # if-branch 영역과 else-branch 영역 모두에 sb.append() 가 있어야 함
@@ -635,10 +665,23 @@ class DaoTransformer:
         def decap(s: str) -> str:
             return s[0].lower() + s[1:] if s else s
 
-        # 1. !''.equals(dto.getXxx()) → xxx != ''
+        # 1. !"".equals(varName) → @kr.co.takeit.util.MybatisUtil@notEmpty( varName )
+        cond = re.sub(
+            r'!\s*""\s*\.equals\s*\(\s*(\w+)\s*\)',
+            lambda m: f"@kr.co.takeit.util.MybatisUtil@notEmpty( {m.group(1)} )",
+            cond,
+        )
+        # 1b. "".equals(varName) → @kr.co.takeit.util.MybatisUtil@empty( varName )
+        cond = re.sub(
+            r'""\s*\.equals\s*\(\s*(\w+)\s*\)',
+            lambda m: f"@kr.co.takeit.util.MybatisUtil@empty( {m.group(1)} )",
+            cond,
+        )
+
+        # 1c. !''.equals(dto.getXxx()) → @kr.co.takeit.util.MybatisUtil@notEmpty( xxx )
         cond = re.sub(
             r"!\s*''\s*\.equals\s*\(\s*(?:\w+\.)?get([A-Z]\w*)\s*\(\s*\)\s*\)",
-            lambda m: f"{decap(m.group(1))} != ''",
+            lambda m: f"@kr.co.takeit.util.MybatisUtil@notEmpty( {decap(m.group(1))} )",
             cond,
         )
 
@@ -673,6 +716,13 @@ class DaoTransformer:
             cond,
         )
 
+        # 6b. Formatter.nullLong(simpleVar) != 0 → simpleVar != 0
+        cond = re.sub(
+            r"(?:Formatter\.)?nullLong\s*\(\s*(\w+)\s*\)\s*!=\s*0",
+            lambda m: f"{m.group(1)} != 0",
+            cond,
+        )
+
         # 7. obj.getXxx().longValue() 등 래퍼메서드 포함 비교
         cond = re.sub(
             r'(?:\w+\.)?get(\w+)\(\)\.\w+\(\)\s*(!=|==|>|<|>=|<=)\s*(\w+)',
@@ -698,6 +748,133 @@ class DaoTransformer:
         cond = cond.replace('&&', 'and').replace('||', 'or')
 
         return cond.strip()
+
+    def _find_block_end(self, code: str, open_brace_pos: int) -> int:
+        """{ 로 시작하는 블록의 닫는 } 위치 반환."""
+        depth = 0
+        for i in range(open_brace_pos, len(code)):
+            if code[i] == '{':
+                depth += 1
+            elif code[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    return i
+        return -1
+
+    def _find_multi_branch_choose(
+        self, code: str, sb_var: str, search_from: int
+    ) -> tuple[int, int, str, list[tuple[str, str]]] | None:
+        """
+        if { sb.appends } else if { sb.appends } else { sb.appends } 3분기 패턴 감지.
+        Returns: (block_start, block_end, choose_xml, param_pairs) or None.
+        """
+        append_re_s = re.compile(rf'\b{re.escape(sb_var)}\.append\(')
+        if_re = re.compile(r'\bif\s*\(')
+
+        for if_m in if_re.finditer(code, search_from):
+            pos = if_m.start()
+            line_start = code.rfind('\n', 0, pos) + 1
+            if '//' in code[line_start:pos]:
+                continue
+
+            # if ( cond ) 추출
+            paren_start = code.index('(', pos)
+            depth = 0
+            cond_end = paren_start
+            for i in range(paren_start, len(code)):
+                if code[i] == '(':
+                    depth += 1
+                elif code[i] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        cond_end = i
+                        break
+            cond1 = code[paren_start + 1:cond_end].strip()
+
+            brace1 = code.find('{', cond_end)
+            if brace1 == -1:
+                continue
+            end1 = self._find_block_end(code, brace1)
+            if end1 == -1:
+                continue
+            branch1_code = code[brace1 + 1:end1]
+
+            # else if 체크
+            rest1 = code[end1 + 1:]
+            elif_m = re.match(r'\s*else\s+if\s*\(', rest1)
+            if not elif_m:
+                continue
+
+            paren2_start = end1 + 1 + rest1.index('(', elif_m.start())
+            depth = 0
+            cond_end2 = paren2_start
+            for i in range(paren2_start, len(code)):
+                if code[i] == '(':
+                    depth += 1
+                elif code[i] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        cond_end2 = i
+                        break
+            cond2 = code[paren2_start + 1:cond_end2].strip()
+
+            brace2 = code.find('{', cond_end2)
+            if brace2 == -1:
+                continue
+            end2 = self._find_block_end(code, brace2)
+            if end2 == -1:
+                continue
+            branch2_code = code[brace2 + 1:end2]
+
+            # else 체크
+            rest2 = code[end2 + 1:]
+            else_m = re.match(r'\s*else\s*\{', rest2)
+            if not else_m:
+                continue
+
+            brace3_abs = end2 + 1 + rest2.index('{', else_m.start())
+            end3 = self._find_block_end(code, brace3_abs)
+            if end3 == -1:
+                continue
+            branch3_code = code[brace3_abs + 1:end3]
+
+            # 각 분기에 append가 있어야 함
+            if not (append_re_s.search(branch1_code) and
+                    append_re_s.search(branch2_code) and
+                    append_re_s.search(branch3_code)):
+                continue
+
+            sql1, params1 = self._extract_sql_and_params(branch1_code, sb_var)
+            sql2, params2 = self._extract_sql_and_params(branch2_code, sb_var)
+            sql3, params3 = self._extract_sql_and_params(branch3_code, sb_var)
+
+            mc1 = self._java_condition_to_mybatis(cond1)
+            mc2 = self._java_condition_to_mybatis(cond2)
+
+            choose_xml = (
+                f'\n<choose>\n'
+                f'    <when test="{mc1}">\n'
+                f'        {" ".join(sql1).strip()}\n'
+                f'    </when>\n'
+                f'    <when test="{mc2}">\n'
+                f'        {" ".join(sql2).strip()}\n'
+                f'    </when>\n'
+                f'    <otherwise>\n'
+                f'        {" ".join(sql3).strip()}\n'
+                f'    </otherwise>\n'
+                f'</choose>'
+            )
+
+            seen: set[str] = set()
+            combined: list[tuple[str, str]] = []
+            for k, v in params1 + params2 + params3:
+                if k not in seen:
+                    seen.add(k)
+                    combined.append((k, v))
+
+            return (pos, end3 + 1, choose_xml, combined)
+
+        return None
 
     def _is_in_block_comment(self, code: str, pos: int) -> bool:
         """pos 위치가 /* ... */ 블록 주석 내부인지 판별."""
@@ -738,6 +915,20 @@ class DaoTransformer:
             prefix, var = m.group(1), m.group(2)
             frag_pairs.append((var, var))
             frag_sql.extend([prefix, f'#{{{var}}}'])
+            return frag_sql, frag_pairs
+
+        # "prefix" + Formatter.nullXxx(WrapperType.valueOf(var)) + "suffix" (중첩 래퍼 호출)
+        m = re.match(
+            r'^"([^"]*)"\s*\+\s*(?:\w+\.)*\w+\(\s*(?:\w+\.)*\w+\(\s*([A-Za-z_]\w*)\s*\)\s*\)\s*(?:\+\s*"([^"]*)")?$',
+            arg
+        )
+        if m:
+            prefix, var = m.group(1), m.group(2)
+            suffix = m.group(3) or ''
+            prefix_clean = prefix.rstrip("'") if prefix.endswith("'") else prefix
+            suffix_clean = suffix.lstrip("'") if suffix.startswith("'") else suffix
+            frag_pairs.append((var, var))
+            frag_sql.append(prefix_clean + f'#{{{var}}}' + suffix_clean)
             return frag_sql, frag_pairs
 
         # "prefix" + Formatter.nullXxx(varName) + "suffix" (메서드 호출 인자 포함)
@@ -801,6 +992,16 @@ class DaoTransformer:
             re.DOTALL
         )
 
+        # 3분기 if/else if/else → <choose><when><when><otherwise> 변환 (다중 append 분기)
+        multi_choose_info = self._find_multi_branch_choose(code, sb_var, last_decl_pos)
+        multi_choose_start = -1
+        multi_choose_end = -1
+        multi_choose_xml = ''
+        multi_choose_inserted = False
+        if multi_choose_info:
+            multi_choose_start, multi_choose_end, multi_choose_xml, multi_choose_params = multi_choose_info
+            param_pairs.extend(multi_choose_params)
+
         # if { append } else { append } → <choose><when><otherwise> 변환
         if_else_re = re.compile(
             rf'if\s*\(([^{{;]+)\)\s*\{{\s*{re.escape(sb_var)}\.append\((.+?)\)\s*;\s*\}}\s*'
@@ -839,6 +1040,18 @@ class DaoTransformer:
 
         for m in append_re.finditer(code, last_decl_pos):
             pos = m.start()
+
+            # // 라인 주석 내 sb.append는 제외
+            line_start = code.rfind('\n', 0, pos) + 1
+            if '//' in code[line_start:pos]:
+                continue
+
+            # 3분기 choose 블록 내부 append 처리
+            if multi_choose_info and multi_choose_start <= pos < multi_choose_end:
+                if not multi_choose_inserted:
+                    sql_parts.append(multi_choose_xml)
+                    multi_choose_inserted = True
+                continue
 
             # choose/when/otherwise 처리
             if pos in choose_when_pos:
@@ -985,6 +1198,14 @@ class DaoTransformer:
         for k, v in param_pairs:
             if k not in seen:
                 seen[k] = v
+
+        # if (!"".equals(var)) 조건에만 쓰이는 변수도 paramMap 에 추가 (MyBatis <if test> 평가 필요)
+        cond_var_re = re.compile(r'!\s*""\s*\.equals\s*\(\s*(\w+)\s*\)')
+        for cv_m in cond_var_re.finditer(code, last_decl_pos):
+            var = cv_m.group(1)
+            if var not in seen:
+                seen[var] = var
+
         return sql_parts, list(seen.items())
 
     def _extract_update_params(self, code: str, start: int) -> list[tuple[str, str]]:
