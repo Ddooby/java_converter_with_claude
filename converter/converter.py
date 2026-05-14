@@ -64,33 +64,34 @@ class DaoTransformer:
         (r'import\s+java\.rmi\.RemoteException\s*;\n?', ''),
         # DbWrap 선언 제거
         (r'\bDbWrap\s+\w+\s*=\s*new\s+DbWrap\(\)\s*;', ''),
-        # dbWrap.getXxx → commonDao.getXxx
-        (r'\bdbWrap\.getInt\b', 'commonDao.getInt'),
-        (r'\bdbWrap\.getLong\b', 'commonDao.getLong'),
-        (r'\bdbWrap\.getString\b', 'commonDao.getString'),
-        (r'\bdbWrap\.getObject\b', 'commonDao.getObject'),
-        (r'\bdbWrap\.getObjects\b', 'commonDao.getObjects'),
-        (r'\bdbWrap\.updateQuery\b', 'commonDao.updateQuery'),
-        (r'\bdbWrap\.isExist\b', 'commonDao.isExist'),
+        # dbWrap / dbwrap (대소문자 무관) → commonDao
+        (r'\bdb[Ww]rap\.getInt\b', 'commonDao.getInt'),
+        (r'\bdb[Ww]rap\.getLong\b', 'commonDao.getLong'),
+        (r'\bdb[Ww]rap\.getDouble\b', 'commonDao.getDouble'),
+        (r'\bdb[Ww]rap\.getString\b', 'commonDao.getString'),
+        (r'\bdb[Ww]rap\.getObject\b', 'commonDao.getObject'),
+        (r'\bdb[Ww]rap\.getObjects\b', 'commonDao.getObjects'),
+        (r'\bdb[Ww]rap\.updateQuery\b', 'commonDao.updateQuery'),
+        (r'\bdb[Ww]rap\.isExist\b', 'commonDao.isExist'),
         # Logger 필드 선언 제거 (@Slf4j 로 대체)
         (r'private\s+\w*\s*Logger\s+\w+\s*=\s*Logger\.getLogger\([^;]+\)\s*;', ''),
         # StringBuffer → StringBuilder
         (r'\bStringBuffer\b', 'StringBuilder'),
         # PKGenerator 카멜케이스 정규화
         (r'\bPKGenerator\.', 'pkGenerator.'),
-        # setObject/getObject/getObjects/updateQuery/isExist/getString: conn 파라미터 제거
-        (r'\b\w+\.setObject\(conn,\s*', r'commonDao.setObject('),
-        (r'\b\w+\.getObjects\(conn,\s*', r'commonDao.getObjects('),
-        (r'\b\w+\.getObject\(conn,\s*', r'commonDao.getObject('),
-        (r'\b\w+\.updateQuery\(conn,\s*', r'commonDao.updateQuery('),
-        (r'\b\w+\.isExist\(conn,\s*', r'commonDao.isExist('),
-        (r'\b\w+\.getString\(conn,\s*', r'commonDao.getString('),
-        # Connection conn 파라미터/인자 제거 (선언부 먼저, 이후 인자 변수)
-        (r',\s*Connection\s+conn\b', ''),
-        (r'\bConnection\s+conn\s*,\s*', ''),
-        (r'\bConnection\s+conn\b', ''),
-        (r',\s*\bconn\b(?=\s*[,)])', ''),
-        (r'\bconn\b\s*,\s*', ''),
+        # setObject/getObject/getObjects/updateQuery/isExist/getString: conn/connection 파라미터 제거
+        (r'\b\w+\.setObject\((?:conn|connection),\s*', r'commonDao.setObject('),
+        (r'\b\w+\.getObjects\((?:conn|connection),\s*', r'commonDao.getObjects('),
+        (r'\b\w+\.getObject\((?:conn|connection),\s*', r'commonDao.getObject('),
+        (r'\b\w+\.updateQuery\((?:conn|connection),\s*', r'commonDao.updateQuery('),
+        (r'\b\w+\.isExist\((?:conn|connection),\s*', r'commonDao.isExist('),
+        (r'\b\w+\.getString\((?:conn|connection),\s*', r'commonDao.getString('),
+        # Connection <varname> 파라미터/인자 제거 (선언부 먼저, 이후 인자 변수)
+        (r',\s*Connection\s+\w+\b', ''),
+        (r'\bConnection\s+\w+\s*,\s*', ''),
+        (r'\bConnection\s+\w+\b', ''),
+        (r',\s*\b(?:conn|connection)\b(?=\s*[,)])', ''),
+        (r'\b(?:conn|connection)\b\s*,\s*', ''),
         # UserBean userBean 파라미터/인자 제거
         (r',\s*UserBean\s+userBean\b', ''),
         (r'\bUserBean\s+userBean\s*,\s*', ''),
@@ -113,10 +114,12 @@ class DaoTransformer:
         (r'\.getStatus\(\)\s*\.equals\s*\(\s*"delete"\s*\)', '.getRowStatus() == DataSetRowStatus.DELETE'),
         # CommonDao 로컬 인스턴스 생성 제거
         (r'[ \t]*CommonDao\s+\w+\s*=\s*new\s+CommonDao\(\)\s*;\n?', ''),
+        # CommonFunction 로컬 인스턴스 생성 제거 (클래스 필드로 주입)
+        (r'[ \t]*CommonFunction\s+\w+\s*=\s*new\s+CommonFunction\(\)\s*;\n?', ''),
         # 로컬 comDao.xxx → commonDao.xxx
         (r'\bcomDao\.', 'commonDao.'),
-        # 단독 defaultUpdate/defaultInsert/defaultDelete → commonDao.xxx
-        (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete)\b', r'commonDao.\1'),
+        # 단독 defaultUpdate/defaultInsert/defaultDelete/defaultVoObjSysValue → commonDao.xxx
+        (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
         # Formatter.nullTrim(rs.getString("X")) 조합 우선 처리 → Formatter.nullTrim(String.valueOf(map.get("X")))
         (r'\bFormatter\.nullTrim\(\s*rs\d*\.getString\("(\w+)"\)\s*\)',
          r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
@@ -138,8 +141,8 @@ class DaoTransformer:
          r'Formatter.nullLong(StringUtil.nvl(map.get("\1"), "0"))'),
         (r'new\s+Double\(\s*rs\d*\.getDouble\("(\w+)"\)\s*\)',
          r'Formatter.nullDouble(StringUtil.nvl(map.get("\1"), "0.0"))'),
-        (r'\brs\d*\.getString\("(\w+)"\)', r'map.get("\1")'),
-        (r"\brs\d*\.getString\('(\w+)'\)", r'map.get("\1")'),
+        (r'\brs\d*\.getString\("(\w+)"\)', r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
+        (r"\brs\d*\.getString\('(\w+)'\)", r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
         (r'\brs\d*\.getLong\("(\w+)"\)',
          r'StringUtil.toLong((String) map.get("\1"), 0L)'),
         (r'\brs\d*\.getDouble\("(\w+)"\)',
@@ -164,10 +167,10 @@ class DaoTransformer:
         (r'\bnew\s+Double\(', 'Double.valueOf('),
         
         # -----------------------------------------------------------------------
-        # AMT/AMOUNT 컬럼 → BigDecimal 변환 (DTO/VO 타입 변경 후 아래 주석 해제)
-        # DTO/VO에서 AMT/AMOUNT 컬럼이 BigDecimal로 변경된 후, 해당 컬럼을 읽는 패턴을 모두 BigDecimal로 변환하는 규칙.
-        # (?i) 플래그로 AMT/AMOUNT 대소문자 모두 인식
-        (r'(?i)(?:Double|Long)\.valueOf\(\s*Formatter\.null(?:Double|Long)\(\s*String\.valueOf\(\s*map\.get\("(\w*(?:amt|amount))"\)\s*\)\s*\)\s*\)',
+        # AMT/AMOUNT 컬럼 → BigDecimal 변환
+        # new Double(rs.getDouble("ENTER_AMOUNT")) → Formatter.nullDouble(StringUtil.nvl(...)) 변환 후
+        # AMT/AMOUNT 컬럼명인 경우 nullBigDecimal로 재변환
+        (r'(?i)Formatter\.null(?:Double|Long)\(\s*StringUtil\.nvl\(\s*map\.get\("(\w*(?:amt|amount))"\)\s*,\s*"[^"]*"\s*\)\s*\)',
          r'Formatter.nullBigDecimal(StringUtil.nvl(map.get("\1"), "0"))'),
         # -----------------------------------------------------------------------
     ]
@@ -273,7 +276,26 @@ class DaoTransformer:
             '\n    private final CommonDao commonDao;'
             '\n    private final UxbDAO uxbDAO;\n'
         )
+        needs_pk = bool(re.search(r'\bpkGenerator\.', code))
+        needs_cf = bool(re.search(r'\bcommonFunction\.', code))
+        if needs_pk:
+            fields += '    private final PKGenerator pkGenerator;\n'
+        if needs_cf:
+            fields += '    private final CommonFunction commonFunction;\n'
         code = re.sub(r'(public\s+class\s+\w+[^{]*\{)', r'\1' + fields, code, count=1)
+        # 필요한 import 추가 (package 선언 바로 뒤)
+        if needs_pk and 'import com.pan.som.common.dao.PKGenerator' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import com.pan.som.common.dao.PKGenerator;\n',
+                code, count=1
+            )
+        if needs_cf and 'import com.pan.som.function.salesOpportunity.CommonFunction' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import com.pan.som.function.salesOpportunity.CommonFunction;\n',
+                code, count=1
+            )
         return code
 
     def _replace_self_dao_refs(self, code: str) -> str:
@@ -297,7 +319,7 @@ class DaoTransformer:
         method_query_count: dict[str, int] = {}
 
         prep_re = re.compile(
-            r'(\w+)\s*=\s*conn\.prepareStatement\((\w+)\.toString\(\)\)\s*;'
+            r'(\w+)\s*=\s*(?:conn|connection)\.prepareStatement\((\w+)\.toString\(\)\)\s*;'
         )
 
         # 메서드별 쿼리 수 사전 집계 (변수명 suffix 결정용) — 블록 주석 내부 제외
@@ -391,7 +413,15 @@ class DaoTransformer:
             method_orig_start = self._find_method_start_pos(code, prep_match.start())
             method_to_prep = prep_match.start() - method_orig_start
             search_from = max(0, adjusted_start - method_to_prep - 200)
-            sb_match = sb_decl_re.search(result_code, search_from)
+            # 메서드 경계를 넘지 않는 가장 마지막 sb 선언을 탐색
+            # (search 대신 finditer 루프: 이전 메서드의 sb 를 잘못 참조하는 버그 방지)
+            sb_match = None
+            for _m in sb_decl_re.finditer(result_code, search_from):
+                if _m.start() >= adjusted_start:
+                    break
+                between = result_code[_m.end():adjusted_start]
+                if not re.search(r'\b(?:public|private|protected)\s+\S+\s+\w+\s*\(', between):
+                    sb_match = _m
             if sb_match and sb_match.start() < adjusted_start:
                 # sb 선언의 들여쓰기를 기준으로 java_call 생성
                 base = sb_match.group(1)
@@ -427,8 +457,8 @@ class DaoTransformer:
                         # sb. 관련 (sb.append 등) 제거
                         if re.search(rf'\b{re.escape(sb_var)}\.', _s):
                             continue
-                        # conn. 관련 제거
-                        if re.search(r'\bconn\.', _s):
+                        # conn./connection. 관련 제거
+                        if re.search(r'\b(?:conn|connection)\.', _s):
                             continue
                         # log. 제거
                         if re.match(r'log\.', _s):
@@ -467,10 +497,10 @@ class DaoTransformer:
             r'[ \t]*if\s*\([^{]+?\)\s*ps\w*\.set(?:Long|String|Int|Double|Timestamp|Object)\b[^\n]*;\n?',
             '', result_code
         )
-        # PreparedStatement 인덱스 카운터 (int i = 1;) 제거 — for 루프 내부는 제외
-        result_code = re.sub(r'^[ \t]*\bint\s+i\s*=\s*\d+\s*;\n?', '', result_code, flags=re.MULTILINE)
-        # sb.append 제거 후 남은 빈 if/else-if 블록 정리 (한 줄 조건 한정)
-        result_code = re.sub(r'[ \t]*(?:else\s+)?if\b[^\n{]*\{\s*\}\s*\n?', '', result_code)
+        # PreparedStatement 인덱스 카운터 (int i = 1;) 제거 — 루프 카운터(int i = 0;)는 유지
+        result_code = re.sub(r'^[ \t]*\bint\s+i\s*=\s*1\s*;\n?', '', result_code, flags=re.MULTILINE)
+        # sb.append 제거 후 남은 빈 if/else-if 블록 정리 (뒤에 else/else-if 가 이어지는 경우는 제외)
+        result_code = re.sub(r'[ \t]*(?:else\s+)?if\b[^\n{]*\{\s*\}(?!\s*(?:else\s+if\b|else\s*\{))\s*\n?', '', result_code)
         # sb.append 제거 후 남은 빈 else 블록 정리
         result_code = re.sub(r'[ \t]*else\s*\{\s*\}\s*\n?', '', result_code)
 
@@ -489,8 +519,8 @@ class DaoTransformer:
             r'[ \t]*\bps\w*\.set(?:Long|String|Int|Double|Timestamp|Object)\b[^\n]*;\n?',
             '', result_code
         )
-        # 잔여 conn.prepareStatement() 호출 제거 (변환 실패한 케이스 정리)
-        result_code = re.sub(r'[ \t]*\w+\s*=\s*conn\.prepareStatement\([^\n]+\)\s*;\n?', '', result_code)
+        # 잔여 conn/connection.prepareStatement() 호출 제거 (변환 실패한 케이스 정리)
+        result_code = re.sub(r'[ \t]*\w+\s*=\s*(?:conn|connection)\.prepareStatement\([^\n]+\)\s*;\n?', '', result_code)
 
         # ps.setXxx 제거 후 if 블록만 남은 블록 주석 정리 (/* \n if(cond){ \n }*/ 형태)
         result_code = re.sub(r'/\*\s*\n\s*if[^\n]*\n\s*\}\s*\*/', '', result_code)
@@ -1373,7 +1403,7 @@ class DaoTransformer:
             body_start = m.end()
             body_end = self._find_block_end(code, m.start() + m.group().rfind('{'))
             body = code[body_start:body_end]
-            if re.search(r'\buserInfo\.', body) and 'UserAdditionalDTO userInfo' not in body:
+            if re.search(r'\buserInfo\b', body) and 'UserAdditionalDTO userInfo' not in body:
                 line_start = code.rfind('\n', 0, body_start) + 1
                 base_indent = re.match(r'[ \t]*', code[line_start:]).group()
                 inner_indent = base_indent + '    '
@@ -1388,6 +1418,15 @@ class DaoTransformer:
 
     def _remove_trivial_try_catch(self, code: str) -> str:
         """catch 바디가 throw new XxxException(e); 하나뿐인 try-catch를 제거하고 try 본문만 남김."""
+        # 이중 catch 선처리:
+        # catch(AnyType e){ throw e; } catch(Exception e){ throw new AnyType(e); }
+        # → 첫 번째 단순 re-throw catch 제거 (두 번째 catch만 남겨 아래 로직에서 제거)
+        code = re.sub(
+            r'(?<=\})\s*catch\s*\(\s*\w+\s+(\w+)\s*\)\s*\{\s*throw\s+\1\s*;\s*\}(?=\s*catch\s*\(\s*Exception\b)',
+            '',
+            code,
+            flags=re.DOTALL,
+        )
         try_re = re.compile(r'^([ \t]*)try\s*\{', re.MULTILINE)
         replacements: list[tuple[int, int, str]] = []
 
@@ -1457,8 +1496,10 @@ class DaoTransformer:
         code = re.sub(r',\s*\bRemoteException\b', '', code)
         code = re.sub(r'\bRemoteException\b\s*,\s*', '', code)
         code = re.sub(r'\bthrows\s+RemoteException\b', '', code)
-        # throws Exception 제거
-        code = re.sub(r'\)\s*throws\s+Exception\b', ')', code)
+        # throws Exception[, 나머지예외들] 제거 (Exception 포함 시 throws 절 전체 제거)
+        code = re.sub(r'\)\s*throws\s+Exception\b[^{;]*(?=\s*[\{;])', ')', code)
+        # 잔여 단독 throws 절 제거 (Exception 이 이미 제거된 후 남은 , OtherException 등)
+        code = re.sub(r'\)\s*,\s*\w+Exception\b', ')', code)
         return code
 
     def _cleanup_formatting(self, code: str) -> str:

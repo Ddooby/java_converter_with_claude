@@ -46,7 +46,7 @@
     {"from": "@Local", "to": ""}
   ],
   "text_replacements": [
-    {"from": "STXException", "to": "Exception"},
+    {"from": "STXException", "to": "UxbBizException"},
     {"from": "StringBuffer", "to": "StringBuilder"},
     {"from": "new Timestamp(System.currentTimeMillis())", "to": "new Date(System.currentTimeMillis())"},
     {"from": "userBean.getUser_id()", "to": "userInfo.getUserId()"},
