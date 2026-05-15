@@ -116,10 +116,17 @@ class DaoTransformer:
         (r'[ \t]*CommonDao\s+\w+\s*=\s*new\s+CommonDao\(\)\s*;\n?', ''),
         # CommonFunction 로컬 인스턴스 생성 제거 (클래스 필드로 주입)
         (r'[ \t]*CommonFunction\s+\w+\s*=\s*new\s+CommonFunction\(\)\s*;\n?', ''),
-        # 로컬 comDao.xxx → commonDao.xxx
+        # CCDAttachFileInfo 로컬 인스턴스 생성 제거 (클래스 필드로 주입)
+        (r'[ \t]*CCDAttachFileInfo\s+\w+\s*=\s*new\s+CCDAttachFileInfo\(\)\s*;\n?', ''),
+        # 로컬 comDao.xxx / com.method() → commonDao.xxx (method call 패턴만, 패키지 경로 제외)
         (r'\bcomDao\.', 'commonDao.'),
+        (r'\bcom\.([a-z]\w+)\(', r'commonDao.\1('),
         # 단독 defaultUpdate/defaultInsert/defaultDelete/defaultVoObjSysValue → commonDao.xxx
         (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
+        # conn/connection 트랜잭션 관리 구문 제거 (Spring @Transactional 로 대체)
+        (r'[ \t]*\b(?:conn|connection)\s*\.\s*setAutoCommit\s*\([^;]*\)\s*;\n?', ''),
+        (r'[ \t]*\b(?:conn|connection)\s*\.\s*commit\s*\(\s*\)\s*;\n?', ''),
+        (r'[ \t]*\b(?:conn|connection)\s*\.\s*rollback\s*\(\s*\)\s*;\n?', ''),
         # Formatter.nullTrim(rs.getString("X")) 조합 우선 처리 → Formatter.nullTrim(String.valueOf(map.get("X")))
         (r'\bFormatter\.nullTrim\(\s*rs\d*\.getString\("(\w+)"\)\s*\)',
          r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
@@ -141,6 +148,7 @@ class DaoTransformer:
          r'Formatter.nullLong(StringUtil.nvl(map.get("\1"), "0"))'),
         (r'new\s+Double\(\s*rs\d*\.getDouble\("(\w+)"\)\s*\)',
          r'Formatter.nullDouble(StringUtil.nvl(map.get("\1"), "0.0"))'),
+        (r'\brs\d*\.getCharacterStream\("(\w+)"\)', r'new StringReader(String.valueOf(map.get("\1")))'),
         (r'\brs\d*\.getString\("(\w+)"\)', r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
         (r"\brs\d*\.getString\('(\w+)'\)", r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
         (r'\brs\d*\.getLong\("(\w+)"\)',
@@ -201,10 +209,16 @@ class DaoTransformer:
 
     def transform(self, code: str) -> tuple[str, str]:
         code = self._apply_line_rules(code)
-        if 'DataSetRowStatus' in code and 'import kr.co.takeit.spring.DataSetRowStatus' not in code:
+        if 'StringReader' in code and 'import java.io.StringReader' not in code:
             code = re.sub(
                 r'(package\s+[\w.]+;\s*\n)',
-                r'\1import kr.co.takeit.spring.DataSetRowStatus;\n',
+                r'\1import java.io.StringReader;\n',
+                code, count=1
+            )
+        if 'DataSetRowStatus' in code and 'import kr.co.takeit.dataset.DataSetRowStatus' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import kr.co.takeit.dataset.DataSetRowStatus;\n',
                 code, count=1
             )
         code = self._add_class_decorations(code)
@@ -278,10 +292,13 @@ class DaoTransformer:
         )
         needs_pk = bool(re.search(r'\bpkGenerator\.', code))
         needs_cf = bool(re.search(r'\bcommonFunction\.', code))
+        needs_attach = bool(re.search(r'\battachFileInfo\.', code))
         if needs_pk:
             fields += '    private final PKGenerator pkGenerator;\n'
         if needs_cf:
             fields += '    private final CommonFunction commonFunction;\n'
+        if needs_attach:
+            fields += '    private final CCDAttachFileInfo attachFileInfo;\n'
         code = re.sub(r'(public\s+class\s+\w+[^{]*\{)', r'\1' + fields, code, count=1)
         # 필요한 import 추가 (package 선언 바로 뒤)
         if needs_pk and 'import com.pan.som.common.dao.PKGenerator' not in code:
@@ -294,6 +311,12 @@ class DaoTransformer:
             code = re.sub(
                 r'(package\s+[\w.]+;\s*\n)',
                 r'\1import com.pan.som.function.salesOpportunity.CommonFunction;\n',
+                code, count=1
+            )
+        if needs_attach and 'import com.pan.som.function.standardInfo.CCDAttachFileInfo' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import com.pan.som.function.standardInfo.CCDAttachFileInfo;\n',
                 code, count=1
             )
         return code
@@ -512,6 +535,49 @@ class DaoTransformer:
             flags=re.DOTALL,
         )
 
+        # 리터럴 SQL prepareStatement 처리: conn.prepareStatement("SQL") → uxbDAO.select/update
+        lit_prep_re = re.compile(
+            r'^([ \t]*)(\w+)\s*=\s*(?:conn|connection)\.prepareStatement\("([^"]+)"\)\s*;$',
+            re.MULTILINE
+        )
+        for lit_m in reversed(list(lit_prep_re.finditer(result_code))):
+            if self._is_in_block_comment(result_code, lit_m.start()):
+                continue
+            base = lit_m.group(1)
+            sql_literal = lit_m.group(3).strip()
+            method_name = self._enclosing_method(result_code, lit_m.start())
+            if not method_name:
+                continue
+            after_lit = result_code[lit_m.end():lit_m.end() + 600]
+            is_update_lit = bool(re.search(r'\bexecuteUpdate\(\)', after_lit))
+            idx = method_query_count.get(method_name, 0)
+            method_query_count[method_name] = idx + 1
+            mapper_id = method_name if idx == 0 else f"{method_name}{idx}"
+            lit_params = self._extract_update_params(result_code, lit_m.end())
+            sql_with_params = self._replace_positional_params(sql_literal, lit_params)
+            xml_entries[mapper_id] = {
+                'id': mapper_id, 'sql': sql_with_params,
+                'params': [k for k, _ in lit_params],
+                'type': 'update' if is_update_lit else 'select',
+            }
+            inner = base + '    '
+            total_m = method_total_count.get(method_name, 1)
+            pv = f'paramMap{idx + 1}' if total_m > 1 else 'paramMap'
+            lv = f'listMap{idx + 1}' if total_m > 1 else 'listMap'
+            call_lines = [f'{base}Map<String, Object> {pv} = new HashMap<>();']
+            for key, val in lit_params:
+                call_lines.append(f'{inner}{pv}.put("{key}", {val});')
+            if is_update_lit:
+                call_lines.append(f'{inner}uxbDAO.update("{self.namespace}.{mapper_id}", {pv});')
+            else:
+                call_lines.append(
+                    f'{inner}List<Map<String, Object>> {lv} = '
+                    f'uxbDAO.select("{self.namespace}.{mapper_id}", {pv});'
+                )
+            java_call = '\n'.join(call_lines)
+            prep_end = result_code.index('\n', lit_m.start()) + 1
+            result_code = result_code[:lit_m.start()] + java_call + '\n' + result_code[prep_end:]
+
         # 잔여 execute 호출 및 ps.setXxx() 제거 (줄 단위로 매칭)
         result_code = re.sub(r'[ \t]*\w+\s*=\s*\w+\.executeQuery\(\)\s*;\n?', '', result_code)
         result_code = re.sub(r'[ \t]*\w+\.executeUpdate\(\)\s*;\n?', '', result_code)
@@ -577,6 +643,11 @@ class DaoTransformer:
         before_else = after_init[:else_m.start()]
         after_else = after_init[else_m.end():]
         if not append_re_s.search(before_else) or not append_re_s.search(after_else):
+            return None
+
+        # 조건부 WHERE 절 감지: if 블록 이전에 sb.append 가 있으면 단일 쿼리 → 분리 안 함
+        first_if_m = re.search(r'\bif\s*\(', before_else)
+        if first_if_m and append_re_s.search(before_else[:first_if_m.start()]):
             return None
 
         # if(condition) 추출: if-branch 의 첫 sb.append 직전에서 탐색
@@ -1454,9 +1525,11 @@ class DaoTransformer:
                 continue
 
             # catch 바디의 마지막 문장이 rethrow 이면 제거 대상
-            # (앞의 result = "ERR-..." 등은 throw 후 도달 불가 → 제거해도 안전)
+            # log.xxx()/e.printStackTrace() 제거 후 throw (new Xxx | e) 만 남으면 trivial
             catch_body = code[catch_open_abs + 1:catch_close].strip()
-            if not re.search(r'\bthrow\s+new\s+\w+\b[^;]*;\s*$', catch_body, re.DOTALL):
+            catch_body_clean = re.sub(r'\blog\.\w+\s*\([^;]*\)\s*;\s*', '', catch_body)
+            catch_body_clean = re.sub(r'\b\w+\.printStackTrace\s*\([^;]*\)\s*;\s*', '', catch_body_clean).strip()
+            if not re.search(r'\bthrow\s+(?:new\s+\w+\b[^;]*|\w+)\s*;\s*$', catch_body_clean, re.DOTALL):
                 continue
 
             # finally 블록이 있으면 제거 범위에 포함
