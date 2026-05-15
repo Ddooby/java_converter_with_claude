@@ -71,8 +71,11 @@ class DaoTransformer:
         (r'\bdb[Ww]rap\.getString\b', 'commonDao.getString'),
         (r'\bdb[Ww]rap\.getObject\b', 'commonDao.getObject'),
         (r'\bdb[Ww]rap\.getObjects\b', 'commonDao.getObjects'),
+        (r'\bdb[Ww]rap\.getObjectCstmt\b', 'commonDao.getObjectCstmt'),
         (r'\bdb[Ww]rap\.updateQuery\b', 'commonDao.updateQuery'),
         (r'\bdb[Ww]rap\.isExist\b', 'commonDao.isExist'),
+        # 메서드 호출에서 conn/connection 이 단독 인자인 경우 제거
+        (r'\(\s*(?:conn|connection)\s*\)', '()'),
         # Logger 필드 선언 제거 (@Slf4j 로 대체)
         (r'private\s+\w*\s*Logger\s+\w+\s*=\s*Logger\.getLogger\([^;]+\)\s*;', ''),
         # StringBuffer → StringBuilder
@@ -123,6 +126,8 @@ class DaoTransformer:
         (r'\bcom\.([a-z]\w+)\(', r'commonDao.\1('),
         # 단독 defaultUpdate/defaultInsert/defaultDelete/defaultVoObjSysValue → commonDao.xxx
         (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
+        # this.defaultXxx → commonDao.defaultXxx (AS-IS에서 this.defaultInsert(conn,...) 패턴 처리 후 잔여)
+        (r'\bthis\.(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
         # conn/connection 트랜잭션 관리 구문 제거 (Spring @Transactional 로 대체)
         (r'[ \t]*\b(?:conn|connection)\s*\.\s*setAutoCommit\s*\([^;]*\)\s*;\n?', ''),
         (r'[ \t]*\b(?:conn|connection)\s*\.\s*commit\s*\(\s*\)\s*;\n?', ''),
@@ -154,7 +159,7 @@ class DaoTransformer:
         (r'\brs\d*\.getLong\("(\w+)"\)',
          r'StringUtil.toLong((String) map.get("\1"), 0L)'),
         (r'\brs\d*\.getDouble\("(\w+)"\)',
-         r'StringUtil.toDouble((String) map.get("\1"), 0.0)'),
+         r'Formatter.nullDouble(StringUtil.nvl(map.get("\1"), "0"))'),
         (r'\brs\d*\.getInt\("(\w+)"\)',
          r'StringUtil.toInt((String) map.get("\1"), 0)'),
         (r'\brs\d*\.getTimestamp\("(\w+)"\)',
@@ -205,7 +210,11 @@ class DaoTransformer:
 
     def __init__(self, class_name: str):
         self.class_name = class_name
-        self.namespace = re.sub(r'(?i)DAO$', '', class_name)
+        m = re.match(r'(.+?)DAO(\d*)$', class_name, re.IGNORECASE)
+        if m:
+            self.namespace = m.group(1) + (m.group(2) if m.group(2) else '')
+        else:
+            self.namespace = class_name
 
     def transform(self, code: str) -> tuple[str, str]:
         code = self._apply_line_rules(code)
@@ -299,8 +308,31 @@ class DaoTransformer:
             fields += '    private final CommonFunction commonFunction;\n'
         if needs_attach:
             fields += '    private final CCDAttachFileInfo attachFileInfo;\n'
+        # 메서드 내부 다른 DAO 클래스 로컬 선언 → 필드 주입
+        dao_inject_re = re.compile(
+            r'^[ \t]*(\w+DAO\d*)\s+(\w+)\s*=\s*new\s+\1\s*\(\s*\)\s*;\n?',
+            re.MULTILINE
+        )
+        dao_injections: dict[str, str] = {}
+        for _dm in dao_inject_re.finditer(code):
+            cls, var = _dm.group(1), _dm.group(2)
+            if cls != self.class_name:
+                dao_injections[var] = cls
+        if dao_injections:
+            code = dao_inject_re.sub(
+                lambda m: '' if m.group(1) != self.class_name else m.group(0),
+                code
+            )
+            for var, cls in dao_injections.items():
+                fields += f'    private final {cls} {var};\n'
         code = re.sub(r'(public\s+class\s+\w+[^{]*\{)', r'\1' + fields, code, count=1)
         # 필요한 import 추가 (package 선언 바로 뒤)
+        if 'import com.pan.som.common.utility.CommonDao' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import com.pan.som.common.utility.CommonDao;\n',
+                code, count=1
+            )
         if needs_pk and 'import com.pan.som.common.dao.PKGenerator' not in code:
             code = re.sub(
                 r'(package\s+[\w.]+;\s*\n)',
@@ -515,6 +547,42 @@ class DaoTransformer:
                 )
                 offset += len(java_call) + 1 - (prep_line_end - replace_start)
 
+            else:
+                # sb 선언을 찾지 못한 경우 (else 분기 등): sb.append 위치를 기준으로 대체
+                append_re_fb = re.compile(
+                    rf'^([ \t]*){re.escape(sb_var)}\.append\(',
+                    re.MULTILINE
+                )
+                first_append_fb = None
+                for _am in append_re_fb.finditer(result_code, search_from, adjusted_start):
+                    if first_append_fb is None:
+                        first_append_fb = _am
+                if first_append_fb is not None:
+                    base = first_append_fb.group(1)
+                    inner = base + ('\t' if '\t' in base else '    ')
+                    replace_start = first_append_fb.start()
+                    if is_update:
+                        lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
+                        for key, val in ordered_params:
+                            lines.append(f'{inner}{param_var}.put("{key}", {val});')
+                        lines.append(f'{inner}uxbDAO.update("{self.namespace}.{mapper_id}", {param_var});')
+                    else:
+                        lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
+                        effective_params = ordered_params if ordered_params else param_pairs
+                        for key, val in effective_params:
+                            lines.append(f'{inner}{param_var}.put("{key}", {val});')
+                        lines.append(
+                            f'{inner}List<Map<String, Object>> {list_var} = '
+                            f'uxbDAO.select("{self.namespace}.{mapper_id}", {param_var});'
+                        )
+                    java_call = '\n'.join(lines)
+                    prep_line_end = result_code.index('\n', adjusted_start) + 1
+                    result_code = (
+                        result_code[:replace_start] + java_call + '\n'
+                        + result_code[prep_line_end:]
+                    )
+                    offset += len(java_call) + 1 - (prep_line_end - replace_start)
+
         # if (cond) ps/pstmt.setXxx(i++, ...) 인라인 형태 통째 제거
         result_code = re.sub(
             r'[ \t]*if\s*\([^{]+?\)\s*ps\w*\.set(?:Long|String|Int|Double|Timestamp|Object)\b[^\n]*;\n?',
@@ -587,6 +655,8 @@ class DaoTransformer:
         )
         # 잔여 conn/connection.prepareStatement() 호출 제거 (변환 실패한 케이스 정리)
         result_code = re.sub(r'[ \t]*\w+\s*=\s*(?:conn|connection)\.prepareStatement\([^\n]+\)\s*;\n?', '', result_code)
+        # SQL builder 변수 null 리셋 잔여 구문 제거 (sb = null;, sql = null; 등)
+        result_code = re.sub(r'[ \t]*\b(?:sb|sql)\w*\s*=\s*null\s*;\n?', '', result_code)
 
         # ps.setXxx 제거 후 if 블록만 남은 블록 주석 정리 (/* \n if(cond){ \n }*/ 형태)
         result_code = re.sub(r'/\*\s*\n\s*if[^\n]*\n\s*\}\s*\*/', '', result_code)
@@ -596,12 +666,8 @@ class DaoTransformer:
         # while/if rs.next() 및 if (rs != null) { 를 listMapN 으로 교체
         result_code = self._fix_rs_patterns(result_code)
 
-        # 빈 finally 블록 정리
-        result_code = re.sub(
-            r'\s*finally\s*\{\s*(?:try\s*\{)?\s*\}?\s*(?:catch\s*\([^)]+\)\s*\{[^}]*\})?\s*\}',
-            '',
-            result_code
-        )
+        # 빈 finally 블록 정리 (내용이 순수 공백만 남은 경우만 제거)
+        result_code = re.sub(r'[ \t]*finally\s*\{\s*\}', '', result_code)
 
         # sb 선언이 제거된 후 남는 orphan log 라인 (.toString() 포함) 제거
         result_code = re.sub(r'[ \t]*log\.\w+\([^\n]*\.toString\(\)[^\n]*\);\n?', '', result_code)
@@ -1559,7 +1625,15 @@ class DaoTransformer:
                     de_indented.append(line)
             replacements.append((m.start(), removal_end, ''.join(de_indented)))
 
-        for start, end, replacement in sorted(replacements, key=lambda x: x[0], reverse=True):
+        # 중첩된 try-catch (finally 내부 등)는 외부 범위에 포함되므로 건너뜀
+        sorted_reps = sorted(replacements, key=lambda x: x[0])
+        filtered_reps: list[tuple[int, int, str]] = []
+        covered_until = -1
+        for start, end, replacement in sorted_reps:
+            if start >= covered_until:
+                filtered_reps.append((start, end, replacement))
+                covered_until = max(covered_until, end)
+        for start, end, replacement in sorted(filtered_reps, key=lambda x: x[0], reverse=True):
             code = code[:start] + replacement + code[end:]
         return code
 
@@ -1656,7 +1730,13 @@ class DaoTransformer:
 
     def _build_mapper_xml(self, entries: list[dict]) -> str:
         if not entries:
-            return ''
+            return (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"\n'
+                '    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">\n'
+                f'<mapper namespace="{self.namespace}">\n'
+                '</mapper>'
+            )
         blocks = []
         for e in entries:
             is_update = e.get('type') == 'update'
@@ -1697,10 +1777,13 @@ class EjbConverter:
         return patterns
 
     def _is_dao_file(self, path: Path) -> bool:
-        return path.stem.upper().endswith('DAO')
+        return bool(re.search(r'(?i)DAO\d*$', path.stem))
 
     def _mapper_name(self, stem: str) -> str:
-        return re.sub(r'(?i)DAO$', '', stem) + 'Mapper.xml'
+        m = re.match(r'(.+?)DAO(\d*)$', stem, re.IGNORECASE)
+        if m:
+            return m.group(1) + (m.group(2) if m.group(2) else '') + 'Mapper.xml'
+        return stem + 'Mapper.xml'
 
     def _read_source(self, path: Path) -> str:
         for enc in ('utf-8', 'cp949', 'euc-kr'):
@@ -1743,11 +1826,10 @@ class EjbConverter:
                     converted.append(out_java)
                     logger.info(f'완료 (Java): {out_java}')
 
-                    if result.get('xml'):
-                        out_xml = OUTPUT_DIR / self._mapper_name(java_file.stem)
-                        out_xml.write_text(result['xml'], encoding='utf-8')
-                        converted.append(out_xml)
-                        logger.info(f'완료 (Mapper XML): {out_xml}')
+                    out_xml = OUTPUT_DIR / self._mapper_name(java_file.stem)
+                    out_xml.write_text(result['xml'], encoding='utf-8')
+                    converted.append(out_xml)
+                    logger.info(f'완료 (Mapper XML): {out_xml}')
                 else:
                     out_path = OUTPUT_DIR / java_file.name
                     out_path.write_text(result, encoding='utf-8')

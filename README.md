@@ -2,31 +2,14 @@
 
 EJB(Enterprise Java Beans) 소스를 Spring Framework Java 소스로 자동 변환하는 Python 기반 컨버터.
 
+Java 라고 썼지만 Python 으로 구현.
+Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
+
 - 변환 규칙은 `patterns/learned_patterns.json` 에 정의하며, Claude Code 세션에서 AS-IS / TO-BE 샘플을 분석해 갱신한다.
 - 변환 실행 시 API 호출 없이 저장된 규칙과 내장 코드 로직만으로 처리한다.
 - DAO 파일은 Java 변환본과 MyBatis Mapper XML 두 파일을 함께 생성한다.
 
-## 실행 방법
-
-```bash
-# 의존성 설치 (최초 1회)
-pip install -r requirements.txt
-
-# 변환 실행
-# input/ 폴더에 변환할 .java 파일을 넣은 후 실행
-python -m converter.main convert
-
-# 패턴 파일 확인
-python -m converter.main patterns
-```
-
-> 결과 파일은 `output/` 폴더에 생성됩니다.
-> DAO 파일은 `XxxDAO.java` + `XxxMapper.xml` 두 파일이 함께 생성됩니다.
-
 ---
-
-Java 라고 썼지만 Python 으로 구현 할 예정이다.
-Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
 
 ## AS-IS
 
@@ -88,5 +71,107 @@ Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
 | Container | DB 처리, Transaction 처리 등 시스템 서비스 구현 |
 | EJB Server | Enterprise Bean 및 Container 실행 환경 |
 | Client Application | EJB 서비스를 호출하는 클라이언트 |
+
+---
+
+## 01. Java 파일 전환  (`converter/main.py`)
+## 실행 방법
+
+```bash
+# 의존성 설치 (최초 1회)
+pip install -r requirements.txt
+
+# 변환 실행
+# input/ 폴더에 변환할 .java 파일을 넣은 후 실행
+python -m converter.main convert
+
+# 패턴 파일 확인
+python -m converter.main patterns
+```
+
+> 결과 파일은 `output/` 폴더에 생성됩니다.
+> DAO 파일은 `XxxDAO.java` + `XxxMapper.xml` 두 파일이 함께 생성됩니다.
+
+---
+
+## `converter/converter.py` 핵심 변환 규칙 (AS-IS → TO-BE)
+
+### 1. 클래스 구조
+
+| AS-IS | TO-BE |
+|-------|-------|
+| `extends CommonDao` | 제거 → `private final CommonDao commonDao;` 필드 주입 |
+| `Logger.getLogger(...)` 필드 선언 | 제거 → `@Slf4j` 어노테이션으로 대체 |
+| 없음 | `@Slf4j` + `@RequiredArgsConstructor` + `@Repository` 자동 추가 |
+
+### 2. DB 접근 방식 (가장 큰 변화)
+
+| AS-IS | TO-BE |
+|-------|-------|
+| `StringBuffer sb = new StringBuffer()` + `sb.append(...)` | 제거 → SQL을 Mapper XML로 추출 |
+| `conn.prepareStatement(sb.toString())` | 제거 |
+| `rs.executeQuery()` | `uxbDAO.select("Namespace.methodId", paramMap)` |
+| `executeUpdate()` | `uxbDAO.update("Namespace.methodId", paramMap)` |
+| `ps.setString(i++, value)` | `paramMap.put("key", value)` |
+| `while (rs.next()) { rs.getString("col") }` | `for (Map<String, Object> map : listMap)` + null 가드 자동 추가 |
+| `rs.getString("col")` | `Formatter.nullTrim(String.valueOf(map.get("col")))` |
+| `rs.getLong("col")` | `StringUtil.toLong((String) map.get("col"), 0L)` |
+| `rs.getDouble("col")` | `StringUtil.toDouble((String) map.get("col"), 0.0)` |
+| `finally { rs.close(); ps.close(); }` | 제거 |
+
+### 3. 파라미터 제거
+
+| AS-IS | TO-BE |
+|-------|-------|
+| 메서드 파라미터 `Connection conn` | 제거 (Spring `@Transactional`로 대체) |
+| `conn.setAutoCommit()` / `commit()` / `rollback()` | 제거 |
+| 메서드 파라미터 `UserBean userBean` | 제거 → 메서드 내부에서 `UserInfo.getUserInfo()` 사용 |
+| `userBean.getUser_id()` | `userInfo.getUserId()` |
+
+### 4. 유틸/예외 치환
+
+| AS-IS | TO-BE |
+|-------|-------|
+| `DbWrap.getObject(conn, ...)` | `commonDao.getObject(...)` |
+| `StringBuffer` | `StringBuilder` |
+| `STXException` | `UxbBizException` |
+| `Formatter.nullTrim(x)` | `StringUtil.nvl(x, "")` |
+| `RowStatus.equals("insert")` | `DataSetRowStatus.INSERT` |
+
+### 5. Mapper XML 자동 생성
+
+- SQL을 Java에서 분리해 `{클래스명}Mapper.xml` 로 생성 (예: `OTCSADetailDAO` → `OTCSADetailMapper.xml`)
+- 한 메서드에 쿼리가 여러 개면 `methodName`, `methodName1`, `methodName2` 순으로 ID 부여
+- `if/else` 분기로 SQL이 달라지는 경우도 감지해 XML 2개로 분리
+
+---
+
+## 02. 변환 대상 DAO 파일 추출 (`targetExtract/daoFile`)
+
+2차 변환 작업 시, **Freezing Source(Business + Common 통합본)** 와 **1차 전환 프로젝트(Git)** 를 비교하여
+**신규로 변환해야 할 DAO 파일 목록을 추출**하는 Python 스크립트입니다.
+
+### 동작 요약
+- `PATH_SOM` (SOM_Business) + `PATH_COMMON` (SOM_Common) 두 폴더의 `.java` 파일을 합집합으로 수집
+- `PATH_GIT` (1차 전환 프로젝트) 폴더의 `.java` 파일과 비교
+- **Freezing Source 에는 있지만 1차 전환에는 없는 파일** → 2차 변환 대상으로 간주
+- **1차 전환에만 있는 파일**, **공통 파일** 도 참고용으로 함께 출력
+
+### 실행 방법
+스크립트는 확장자 없는 Python 파일이므로, IDE(VS Code 등)에서 열어 **`Ctrl + F5`** 로 실행합니다.
+또는 명령어로 직접 실행:
+
+```bash
+python targetExtract/daoFile
+```
+
+> 실행 전 스크립트 상단의 `PATH_SOM`, `PATH_COMMON`, `PATH_GIT` 경로를 환경에 맞게 수정해야 합니다.
+
+### 결과물
+- 콘솔에 비교 결과 요약 출력 (변환 대상 파일 수, 1차 전환 신규 파일 수, 공통 파일 수)
+- **`dao_compare_result.txt`** 파일에 상세 결과 저장 (스크립트 실행 위치 기준)
+  - `[Business+Common에 있고 Git 1차 전환에 없는 파일]` ← 실제 변환 대상 목록
+  - `[Git 1차 전환에만 있는 파일]` ← 참고용 (Freezing Source에 없는 이상 파일)
+  - `[공통 파일]` ← 양쪽 모두 존재하는 파일
 
 ---
