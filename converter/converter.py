@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,9 @@ def _env_path_optional(key: str) -> Path | None:
 INPUT_DIR = _env_path("INPUT_DIR", "input")
 OUTPUT_DIR = _env_path("OUTPUT_DIR", "output")
 PATTERNS_FILE = _env_path("PATTERNS_FILE", "patterns/learned_patterns.json")
+
+# Panocean Git 프로젝트 경로 (output 파일 생성 시 프로젝트 폴더에도 같이 생성)
+EXTERNAL_GEN_YN = True  # output 파일을 외부 프로젝트에도 생성할지 여부;
 EXTERNAL_DAO_BASE = _env_path_optional("EXTERNAL_DAO_BASE")
 EXTERNAL_MAPPER_BASE = _env_path_optional("EXTERNAL_MAPPER_BASE")
 
@@ -103,8 +106,8 @@ class DaoTransformer:
     _LINE_RULES: list[tuple[str, str]] = [
         # RemoteException import 제거
         (r'import\s+java\.rmi\.RemoteException\s*;\n?', ''),
-        # DbWrap 선언 제거
-        (r'\bDbWrap\s+\w+\s*=\s*new\s+DbWrap\(\)\s*;', ''),
+        # DbWrap 선언 제거 (접근제어자/static/final 등 modifier 도 함께 제거)
+        (r'[ \t]*(?:(?:private|public|protected|static|final)\s+)*DbWrap\s+\w+\s*=\s*new\s+DbWrap\(\)\s*;\s*\n?', ''),
         # dbWrap / dbwrap (대소문자 무관) → commonDao
         (r'\bdb[Ww]rap\.getInt\b', 'commonDao.getInt'),
         (r'\bdb[Ww]rap\.getLong\b', 'commonDao.getLong'),
@@ -165,8 +168,8 @@ class DaoTransformer:
         # 로컬 comDao.xxx / com.method() → commonDao.xxx (method call 패턴만, 패키지 경로 제외)
         (r'\bcomDao\.', 'commonDao.'),
         (r'\bcom\.([a-z]\w+)\(', r'commonDao.\1('),
-        # 단독 defaultUpdate/defaultInsert/defaultDelete/defaultVoObjSysValue → commonDao.xxx
-        (r'(?<!\.)(?<!commonDao\.)(?<!\w)(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
+        # 단독 defaultUpdate/defaultInsert/defaultDelete/defaultVoObjSysValue 호출 → commonDao.xxx
+        # (메서드 선언부는 _prefix_common_dao_default_methods 에서 별도 처리)
         # this.defaultXxx → commonDao.defaultXxx (AS-IS에서 this.defaultInsert(conn,...) 패턴 처리 후 잔여)
         (r'\bthis\.(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b', r'commonDao.\1'),
         # conn/connection 트랜잭션 관리 구문 제거 (Spring @Transactional 로 대체)
@@ -174,10 +177,10 @@ class DaoTransformer:
         (r'[ \t]*\b(?:conn|connection)\s*\.\s*commit\s*\(\s*\)\s*;\n?', ''),
         (r'[ \t]*\b(?:conn|connection)\s*\.\s*rollback\s*\(\s*\)\s*;\n?', ''),
         # Formatter.nullTrim(rs.getString("X")) 조합 우선 처리 → Formatter.nullTrim(String.valueOf(map.get("X")))
-        (r'\bFormatter\.nullTrim\(\s*rs\d*\.getString\("(\w+)"\)\s*\)',
+        (r'\bFormatter\.nullTrim\(\s*rs\w*\.getString\("(\w+)"\)\s*\)',
          r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
         # VO/DTO setter에서 rs.getString → Formatter.nullTrim(String.valueOf(map.get())) 우선 처리
-        (r'(\.set\w+\(\s*)rs\d*\.getString\s*\(\s*"(\w+)"\s*\)(\s*\))',
+        (r'(\.set\w+\(\s*)rs\w*\.getString\s*\(\s*"(\w+)"\s*\)(\s*\))',
          r'\1Formatter.nullTrim(String.valueOf(map.get("\2")))\3'),
         # Formatter.nullTrim 일반 (단순 인자)
         (r'\bFormatter\.nullTrim\((\w+)\)', r'StringUtil.nvl(\1, "")'),
@@ -186,26 +189,30 @@ class DaoTransformer:
          r'Formatter.nullLong(StringUtil.nvl(\1.get\2(), "0"))'),
         # ResultSet 컬럼 읽기 → Map 변환 (래핑 형태 우선 처리)
         # String.valueOf(rs.getDouble("COL")) → String.valueOf(map.get("COL")) (new Double 래핑용)
-        (r'\bString\.valueOf\(\s*rs\d*\.getDouble\("(\w+)"\)\s*\)',
+        (r'\bString\.valueOf\(\s*rs\w*\.getDouble\("(\w+)"\)\s*\)',
          r'String.valueOf(map.get("\1"))'),
-        (r'\bString\.valueOf\(\s*rs\d*\.getLong\("(\w+)"\)\s*\)',
+        (r'\bString\.valueOf\(\s*rs\w*\.getLong\("(\w+)"\)\s*\)',
          r'String.valueOf(map.get("\1"))'),
-        (r'new\s+Long\(\s*rs\d*\.getLong\("(\w+)"\)\s*\)',
+        (r'new\s+Long\(\s*rs\w*\.getLong\("(\w+)"\)\s*\)',
          r'Formatter.nullLong(StringUtil.nvl(map.get("\1"), "0"))'),
-        (r'new\s+Double\(\s*rs\d*\.getDouble\("(\w+)"\)\s*\)',
+        (r'new\s+Double\(\s*rs\w*\.getDouble\("(\w+)"\)\s*\)',
          r'Formatter.nullDouble(StringUtil.nvl(map.get("\1"), "0.0"))'),
-        (r'\brs\d*\.getCharacterStream\("(\w+)"\)', r'new StringReader(String.valueOf(map.get("\1")))'),
-        (r'\brs\d*\.getString\("(\w+)"\)', r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
-        (r"\brs\d*\.getString\('(\w+)'\)", r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
-        (r'\brs\d*\.getLong\("(\w+)"\)',
+        (r'\brs\w*\.getCharacterStream\("(\w+)"\)', r'new StringReader(String.valueOf(map.get("\1")))'),
+        (r'\brs\w*\.getString\("(\w+)"\)', r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
+        (r"\brs\w*\.getString\('(\w+)'\)", r'Formatter.nullTrim(String.valueOf(map.get("\1")))'),
+        (r'\brs\w*\.getLong\("(\w+)"\)',
          r'StringUtil.toLong((String) map.get("\1"), 0L)'),
-        (r'\brs\d*\.getDouble\("(\w+)"\)',
+        (r'\brs\w*\.getDouble\("(\w+)"\)',
          r'Formatter.nullDouble(StringUtil.nvl(map.get("\1"), "0"))'),
-        (r'\brs\d*\.getInt\("(\w+)"\)',
+        (r'\brs\w*\.getInt\("(\w+)"\)',
          r'StringUtil.toInt((String) map.get("\1"), 0)'),
-        (r'\brs\d*\.getTimestamp\("(\w+)"\)',
+        (r'\brs\w*\.getTimestamp\("(\w+)"\)',
          r'Formatter.parseToDate(map.get("\1"))'),
         # finally 블록 내 close() 제거 (ps/pstmt/rs 공통)
+        # 중괄호 포함 형태: if (var != null) { var.close(); }
+        (r'if\s*\(\s*rs\w*\s*!=\s*null\s*\)\s*\{\s*rs\w*\.close\(\)\s*;\s*\}', ''),
+        (r'if\s*\(\s*ps\w*\s*!=\s*null\s*\)\s*\{\s*ps\w*\.close\(\)\s*;\s*\}', ''),
+        # 중괄호 없는 형태: if (var != null) var.close();
         (r'if\s*\(\s*rs\w*\s*!=\s*null\s*\)\s*rs\w*\.close\(\)\s*;', ''),
         (r'if\s*\(\s*ps\w*\s*!=\s*null\s*\)\s*ps\w*\.close\(\)\s*;', ''),
         (r'\brs\w*\.close\(\)\s*;', ''),
@@ -226,6 +233,8 @@ class DaoTransformer:
         # AMT/AMOUNT 컬럼명인 경우 nullBigDecimal로 재변환
         (r'(?i)Formatter\.null(?:Double|Long)\(\s*StringUtil\.nvl\(\s*map\.get\("(\w*(?:amt|amount))"\)\s*,\s*"[^"]*"\s*\)\s*\)',
          r'Formatter.nullBigDecimal(StringUtil.nvl(map.get("\1"), "0"))'),
+        # VO/DTO 의 defalutQry (오타 필드) → getDefaultQry() 메서드 호출
+        (r'\b(\w+(?:VO|DTO))\.defalutQry\b', r'\1.getDefaultQry()'),
         # -----------------------------------------------------------------------
     ]
 
@@ -258,7 +267,9 @@ class DaoTransformer:
             self.namespace = class_name
 
     def transform(self, code: str) -> tuple[str, str]:
+        code = self._normalize_nonrs_resultset_vars(code)
         code = self._apply_line_rules(code)
+        code = self._prefix_common_dao_default_methods(code)
         if 'StringReader' in code and 'import java.io.StringReader' not in code:
             code = re.sub(
                 r'(package\s+[\w.]+;\s*\n)',
@@ -271,14 +282,23 @@ class DaoTransformer:
                 r'\1import kr.co.takeit.dataset.DataSetRowStatus;\n',
                 code, count=1
             )
+        # Timestamp 가 타입으로 사용되면 import 추가 (getTimestamp/setTimestamp 메서드 호출은 제외)
+        if re.search(r'\bTimestamp\b', code) and 'import java.sql.Timestamp' not in code:
+            code = re.sub(
+                r'(package\s+[\w.]+;\s*\n)',
+                r'\1import java.sql.Timestamp;\n',
+                code, count=1
+            )
         code = self._add_class_decorations(code)
         code, xml_entries = self._convert_execute_queries(code)
         code = self._replace_self_dao_refs(code)
         code = self._wrap_listmap_for_loops(code)
+        code = self._resolve_nested_map_shadowing(code)
         code = self._inject_user_delegation(code)
         code = self._fix_throws(code)
         code = self._remove_trivial_try_catch(code)
         code = self._remove_throws_exception(code)
+        code = self._remove_unused_imports(code)
         code = self._cleanup_formatting(code)
         return code, self._build_mapper_xml(xml_entries)
 
@@ -289,6 +309,103 @@ class DaoTransformer:
     def _apply_line_rules(self, code: str) -> str:
         for pattern, replacement in self._LINE_RULES:
             code = re.sub(pattern, replacement, code)
+        return code
+
+    def _prefix_common_dao_default_methods(self, code: str) -> str:
+        """defaultUpdate/Insert/Delete/VoObjSysValue 호출에 commonDao. 접두사 추가.
+        메서드 선언부(`public void defaultUpdate(...)`)는 제외."""
+        call_re = re.compile(
+            r'(?<!\.)(?<!commonDao\.)(?<!\w)'
+            r'(defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\b'
+        )
+        decl_re = re.compile(
+            r'\b(?:public|private|protected)\b[^=;{}\n]*?'
+            r'\b(?:defaultUpdate|defaultInsert|defaultDelete|defaultVoObjSysValue)\s*\('
+        )
+        out_lines = []
+        for line in code.split('\n'):
+            if decl_re.search(line):
+                out_lines.append(line)
+                continue
+            out_lines.append(call_re.sub(r'commonDao.\1', line))
+        return '\n'.join(out_lines)
+
+    def _normalize_nonrs_resultset_vars(self, code: str) -> str:
+        """`ResultSet tempRs ...;` 처럼 `rs` 로 시작하지 않는 ResultSet 변수의 호출을
+        `rs` prefix 변수처럼 치환되도록 표준화한다.
+        선언: `ResultSet (\\w+)` 중 `rs` 로 시작 안 하는 변수 → `rsXxx` 형태로 rename.
+        같은 변수명이 다른 의미로 쓰일 수 있으므로 호출 패턴(.getString/getDouble/...
+        .close/.next) 만 치환한다."""
+        rs_vars = set(re.findall(r'\bResultSet\s+(\w+)\s*[=;]', code))
+        target_methods = (
+            'getString', 'getLong', 'getDouble', 'getInt', 'getTimestamp',
+            'getCharacterStream', 'getObject', 'close', 'next',
+        )
+        for var in rs_vars:
+            if var.startswith('rs') or var.startswith('Rs'):
+                continue
+            new_var = 'rs_' + var
+            for mth in target_methods:
+                code = re.sub(
+                    rf'\b{re.escape(var)}\.{mth}\b', f'{new_var}.{mth}', code
+                )
+            # 선언/할당/null 체크도 동일 변수명으로 치환
+            code = re.sub(
+                rf'\bResultSet\s+{re.escape(var)}\b', f'ResultSet {new_var}', code
+            )
+            code = re.sub(
+                rf'\b{re.escape(var)}\s*=\s*(?=\w+(?:\.\w+)?\.executeQuery)',
+                f'{new_var} = ', code
+            )
+            code = re.sub(
+                rf'\bif\s*\(\s*{re.escape(var)}\s*!=\s*null\s*\)',
+                f'if ({new_var} != null)', code
+            )
+        return code
+
+    def _resolve_nested_map_shadowing(self, code: str) -> str:
+        """중첩 for (Map<String,Object> map : listMapN) 루프에서 inner map 변수 shadow 해소.
+
+        depth N (0=outermost) 의 루프에 대해 N>=1 이면 `map` → `map{N+1}` 로 rename.
+        선언부와 body 내 `\\bmap\\b` 참조를 모두 치환 (더 깊은 루프는 backward 처리로
+        이미 renamed 되어 있어 정규식이 매치하지 않음)."""
+        for_re = re.compile(r'for\s*\(\s*Map<String,\s*Object>\s+map\s*:\s*(\w+)\s*\)\s*\{')
+        matches = list(for_re.finditer(code))
+        if not matches:
+            return code
+        # body 범위 (start of `for`, body open `{` 다음, body 닫는 `}` 직전) 계산
+        ranges: list[tuple[int, int, int]] = []
+        for m in matches:
+            body_start = m.end()
+            d = 1
+            j = body_start
+            while j < len(code) and d > 0:
+                if code[j] == '{':
+                    d += 1
+                elif code[j] == '}':
+                    d -= 1
+                j += 1
+            ranges.append((m.start(), body_start, j - 1))
+        # 각 루프의 nesting depth: 자기보다 바깥쪽 for-map 루프 개수
+        depths: list[int] = []
+        for i, (s, _, _) in enumerate(ranges):
+            d = 0
+            for j, (_, bs2, be2) in enumerate(ranges):
+                if i != j and bs2 <= s < be2:
+                    d += 1
+            depths.append(d)
+        # 가장 깊은 것부터 backward 처리 (offset 문제 회피)
+        for i in range(len(matches) - 1, -1, -1):
+            depth = depths[i]
+            if depth == 0:
+                continue
+            new_var = f'map{depth + 1}'
+            s, bs, be = ranges[i]
+            old_decl = code[s:bs]
+            new_decl = re.sub(r'\bmap\b', new_var, old_decl, count=1)
+            body = code[bs:be]
+            new_body = re.sub(r'\bmap\b', new_var, body)
+            code = code[:s] + new_decl + new_body + code[be:]
         return code
 
     def _wrap_listmap_for_loops(self, code: str) -> str:
@@ -413,6 +530,8 @@ class DaoTransformer:
         """PreparedStatement 패턴을 uxbDAO.select/update() 로 변환하고 SQL을 Mapper XML로 추출."""
         xml_entries: dict = {}
         method_query_count: dict[str, int] = {}
+        # (method_name, rs_var) → list_var 매핑: prepareStatement→executeQuery 체인 추적
+        self._rs_list_var_map: dict[tuple[str, str], str] = {}
 
         prep_re = re.compile(
             r'(\w+)\s*=\s*(?:conn|connection)\.prepareStatement\((\w+)\.toString\(\)\)\s*;'
@@ -439,7 +558,7 @@ class DaoTransformer:
             if not method_name:
                 continue
 
-            # executeUpdate vs executeQuery 판별
+            # executeUpdate vs executeQuery 판별 (호출 근접성으로 우선 판단)
             after = code[prep_match.end():prep_match.end() + 800]
             is_update = bool(re.search(r'\bexecuteUpdate\(\)', after))
 
@@ -452,9 +571,30 @@ class DaoTransformer:
             param_var = f'paramMap{suffix}'
             list_var = f'listMap{suffix}'
 
+            # rs_var → list_var 매핑: pstmt 재할당 전까지의 executeQuery() 호출에서 rs 변수 추출
+            pstmt_var = prep_match.group(1)
+            next_prep_re = re.compile(
+                rf'\b{re.escape(pstmt_var)}\s*=\s*(?:conn|connection)\.prepareStatement\b'
+            )
+            next_prep_m = next_prep_re.search(code, prep_match.end())
+            scope_end = next_prep_m.start() if next_prep_m else len(code)
+            exec_m = re.search(
+                rf'\b(\w+)\s*=\s*{re.escape(pstmt_var)}\.executeQuery\(\)',
+                code[prep_match.end():scope_end]
+            )
+            if exec_m:
+                self._rs_list_var_map[(method_name, exec_m.group(1))] = list_var
+
             # SQL 추출 (prepareStatement 이전, 현재 메서드 범위만)
             before = code[:prep_match.start()]
             sql_parts, param_pairs = self._extract_sql_and_params(before, sb_var)
+
+            # SQL 본문 키워드로 타입 보강 (executeUpdate 호출이 멀리 있어도 보강)
+            sql_type = self._detect_sql_type(' '.join(sql_parts))
+            if sql_type != 'select':
+                is_update = True
+            elif is_update:
+                sql_type = 'update'  # executeUpdate 호출은 있는데 첫 키워드 못 잡은 케이스
 
             # if/else 분기가 각각 완전한 SQL을 빌드하는지 감지
             split_result = self._detect_if_else_query_split(before, sb_var)
@@ -466,7 +606,7 @@ class DaoTransformer:
                 )
                 xml_entries[mapper_id] = {
                     'id': mapper_id, 'sql': sql_xml,
-                    'params': [k for k, _ in ordered_params], 'type': 'update',
+                    'params': [k for k, _ in ordered_params], 'type': sql_type,
                 }
             elif split_result:
                 # if/else 분기별 XML 2개 생성
@@ -476,26 +616,35 @@ class DaoTransformer:
 
                 if_sql_xml = ' '.join(if_sql_parts).strip()
                 else_sql_xml = ' '.join(else_sql_parts).strip()
+                if_type = self._detect_sql_type(if_sql_xml)
+                else_type = self._detect_sql_type(else_sql_xml)
                 xml_entries[mapper_id] = {
                     'id': mapper_id, 'sql': if_sql_xml,
-                    'params': [k for k, _ in split_param_pairs], 'type': 'select',
+                    'params': [k for k, _ in split_param_pairs], 'type': if_type,
                 }
                 xml_entries[else_mapper_id] = {
                     'id': else_mapper_id, 'sql': else_sql_xml,
-                    'params': [k for k, _ in split_param_pairs], 'type': 'select',
+                    'params': [k for k, _ in split_param_pairs], 'type': else_type,
                 }
             else:
                 sql_xml = ' '.join(sql_parts).strip()
-                if param_pairs:
-                    ordered_params = []
-                else:
-                    # ? 플레이스홀더 방식 SELECT: ps.setXxx 에서 파라미터 추출
+                # SQL 에 `?` 잔여 플레이스홀더가 있으면 ps.setXxx 에서 파라미터 추출해 #{} 치환
+                ordered_params = []
+                if '?' in sql_xml:
                     ordered_params = self._extract_update_params(code, prep_match.end())
                     if ordered_params:
                         sql_xml = self._replace_positional_params(sql_xml, ordered_params)
+                # param_pairs (sb.append + 조건변수) + ordered_params (ps.setXxx) 병합 (key 중복 제거)
+                merged_pairs: list[tuple[str, str]] = []
+                seen_keys: set[str] = set()
+                for k, v in param_pairs + ordered_params:
+                    if k not in seen_keys:
+                        seen_keys.add(k)
+                        merged_pairs.append((k, v))
+                ordered_params = merged_pairs
                 xml_entries[mapper_id] = {
                     'id': mapper_id, 'sql': sql_xml,
-                    'params': [k for k, _ in ordered_params] if ordered_params else [k for k, _ in param_pairs],
+                    'params': [k for k, _ in merged_pairs],
                     'type': 'select',
                 }
 
@@ -566,10 +715,11 @@ class DaoTransformer:
                     preamble = ''.join(preamble_parts)
 
                     if is_update:
+                        call_method = self._java_call_for_type(sql_type)
                         lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
                         for key, val in ordered_params:
                             lines.append(f'{inner}{param_var}.put("{key}", {val});')
-                        lines.append(f'{inner}uxbDAO.update("{self.namespace}.{mapper_id}", {param_var});')
+                        lines.append(f'{inner}uxbDAO.{call_method}("{self.namespace}.{mapper_id}", {param_var});')
                     else:
                         lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
                         effective_params = ordered_params if ordered_params else param_pairs
@@ -603,10 +753,11 @@ class DaoTransformer:
                     inner = base + ('\t' if '\t' in base else '    ')
                     replace_start = first_append_fb.start()
                     if is_update:
+                        call_method = self._java_call_for_type(sql_type)
                         lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
                         for key, val in ordered_params:
                             lines.append(f'{inner}{param_var}.put("{key}", {val});')
-                        lines.append(f'{inner}uxbDAO.update("{self.namespace}.{mapper_id}", {param_var});')
+                        lines.append(f'{inner}uxbDAO.{call_method}("{self.namespace}.{mapper_id}", {param_var});')
                     else:
                         lines = [f'{base}Map<String, Object> {param_var} = new HashMap<>();']
                         effective_params = ordered_params if ordered_params else param_pairs
@@ -631,10 +782,22 @@ class DaoTransformer:
         )
         # PreparedStatement 인덱스 카운터 (int i = 1;) 제거 — 루프 카운터(int i = 0;)는 유지
         result_code = re.sub(r'^[ \t]*\bint\s+i\s*=\s*1\s*;\n?', '', result_code, flags=re.MULTILINE)
-        # sb.append 제거 후 남은 빈 if/else-if 블록 정리 (뒤에 else/else-if 가 이어지는 경우는 제외)
-        result_code = re.sub(r'[ \t]*(?:else\s+)?if\b[^\n{]*\{\s*\}(?!\s*(?:else\s+if\b|else\s*\{))\s*\n?', '', result_code)
-        # sb.append 제거 후 남은 빈 else 블록 정리
-        result_code = re.sub(r'[ \t]*else\s*\{\s*\}\s*\n?', '', result_code)
+        # sb.append 제거 후 남은 빈 if/else 블록 정리 — 중첩/연쇄 케이스 위해 수렴할 때까지 반복
+        for _ in range(8):
+            prev = result_code
+            # 빈 if/else-if (뒤에 else/else-if 가 이어지지 않을 때만)
+            result_code = re.sub(
+                r'[ \t]*(?:else\s+)?if\b[^\n{]*\{\s*\}(?!\s*(?:else\s+if\b|else\s*\{))\s*\n?',
+                '', result_code,
+            )
+            # 빈 else
+            result_code = re.sub(r'[ \t]*else\s*\{\s*\}\s*\n?', '', result_code)
+            # 빈 if {} else {empty body 가 또 다른 if-else 체인을 포함} 케이스: 내부 정리 후 남은 빈 if-else
+            result_code = re.sub(
+                r'[ \t]*if\b[^\n{]*\{\s*\}\s*else\s*\{\s*\}\s*\n?', '', result_code,
+            )
+            if result_code == prev:
+                break
 
         # } else { throw ... } 패턴에서 else-throw 블록만 제거, 닫는 } 는 보존
         result_code = re.sub(
@@ -659,6 +822,11 @@ class DaoTransformer:
                 continue
             after_lit = result_code[lit_m.end():lit_m.end() + 600]
             is_update_lit = bool(re.search(r'\bexecuteUpdate\(\)', after_lit))
+            sql_type_lit = self._detect_sql_type(sql_literal)
+            if sql_type_lit != 'select':
+                is_update_lit = True
+            elif is_update_lit:
+                sql_type_lit = 'update'
             idx = method_query_count.get(method_name, 0)
             method_query_count[method_name] = idx + 1
             mapper_id = method_name if idx == 0 else f"{method_name}{idx}"
@@ -667,7 +835,7 @@ class DaoTransformer:
             xml_entries[mapper_id] = {
                 'id': mapper_id, 'sql': sql_with_params,
                 'params': [k for k, _ in lit_params],
-                'type': 'update' if is_update_lit else 'select',
+                'type': sql_type_lit if is_update_lit else 'select',
             }
             inner = base + '    '
             total_m = method_total_count.get(method_name, 1)
@@ -677,7 +845,8 @@ class DaoTransformer:
             for key, val in lit_params:
                 call_lines.append(f'{inner}{pv}.put("{key}", {val});')
             if is_update_lit:
-                call_lines.append(f'{inner}uxbDAO.update("{self.namespace}.{mapper_id}", {pv});')
+                call_method = self._java_call_for_type(sql_type_lit)
+                call_lines.append(f'{inner}uxbDAO.{call_method}("{self.namespace}.{mapper_id}", {pv});')
             else:
                 call_lines.append(
                     f'{inner}List<Map<String, Object>> {lv} = '
@@ -737,7 +906,20 @@ class DaoTransformer:
         last_init_pos = inits[-1].start()
         after_init = before[last_init_pos:]
 
-        else_m = re.search(r'\}\s*else\s*\{', after_init)
+        # outer if-else 의 `}else{` 만 매칭 (중첩 `}else{` 는 brace depth 로 배제)
+        # outer 의 닫는 `}` 직후 depth 는 0 이어야 함
+        else_m = None
+        for cand in re.finditer(r'\}\s*else\s*\{', after_init):
+            depth = 0
+            for i in range(cand.start() + 1):
+                ch = after_init[i]
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+            if depth == 0:
+                else_m = cand
+                break
         if else_m is None:
             return None
 
@@ -750,6 +932,23 @@ class DaoTransformer:
         before_else = after_init[:else_m.start()]
         after_else = after_init[else_m.end():]
         if not append_re_s.search(before_else) or not append_re_s.search(after_else):
+            return None
+
+        # outer else-branch 의 닫는 `}` 이후에도 sb.append 가 있으면
+        # 단일 쿼리가 if-else 뒤로 더 빌드되는 케이스 → split 포기
+        else_brace_open = else_m.end() - 1
+        bdepth = 0
+        else_close_pos = -1
+        for i in range(else_brace_open, len(after_init)):
+            ch = after_init[i]
+            if ch == '{':
+                bdepth += 1
+            elif ch == '}':
+                bdepth -= 1
+                if bdepth == 0:
+                    else_close_pos = i
+                    break
+        if else_close_pos != -1 and append_re_s.search(after_init[else_close_pos + 1:]):
             return None
 
         # 조건부 WHERE 절 감지: if 블록 이전에 sb.append 가 있으면 단일 쿼리 → 분리 안 함
@@ -792,8 +991,9 @@ class DaoTransformer:
         return java_cond, if_sql_parts, else_sql_parts, combined_pairs
 
     def _fix_rs_patterns(self, code: str) -> str:
-        """while/if rs.next() 및 if (rs != null) { 를 가장 가까운 listMapN 변수로 교체."""
+        """while/if rs.next() 및 if (rs != null) { 를 매핑된 listMapN 변수로 교체."""
         list_decl_re = re.compile(r'\bList<Map<String, Object>>\s+(listMap\d*)\b')
+        rs_map = getattr(self, '_rs_list_var_map', {})
 
         def nearest_list_var(snapshot: str, pos: int) -> str:
             best = 'listMap'
@@ -804,11 +1004,17 @@ class DaoTransformer:
                     break
             return best
 
+        def lookup_list_var(snapshot: str, pos: int, rs_var: str) -> str:
+            method_name = self._enclosing_method(snapshot, pos)
+            if method_name and (method_name, rs_var) in rs_map:
+                return rs_map[(method_name, rs_var)]
+            return nearest_list_var(snapshot, pos)
+
         # 1. while (rs.next()) → for (Map<String, Object> map : listVarN)
         parts: list[str] = []
         last = 0
-        for m in re.finditer(r'while\s*\(\s*\w+\.next\(\)\s*\)', code):
-            lv = nearest_list_var(code, m.start())
+        for m in re.finditer(r'while\s*\(\s*(\w+)\.next\(\)\s*\)', code):
+            lv = lookup_list_var(code, m.start(), m.group(1))
             parts.append(code[last:m.start()])
             parts.append(f'for (Map<String, Object> map : {lv})')
             last = m.end()
@@ -818,8 +1024,8 @@ class DaoTransformer:
         # 2. if (rs.next()) { → if (listVarN != null && !listVarN.isEmpty()) { + map 선언
         parts = []
         last = 0
-        for m in re.finditer(r'([ \t]*)if\s*\(\s*\w+\.next\(\)\s*\)\s*\{', code):
-            lv = nearest_list_var(code, m.start())
+        for m in re.finditer(r'([ \t]*)if\s*\(\s*(\w+)\.next\(\)\s*\)\s*\{', code):
+            lv = lookup_list_var(code, m.start(), m.group(2))
             indent = m.group(1)
             parts.append(code[last:m.start()])
             parts.append(
@@ -834,7 +1040,7 @@ class DaoTransformer:
         # 단, 블록 내에 for (Map<String, Object> map : ...) 가 있을 때만 변환
         parts = []
         last = 0
-        for m in re.finditer(r'\bif\s*\(\s*rs\w*\s*!=\s*null\s*\)\s*\{', code):
+        for m in re.finditer(r'\bif\s*\(\s*(rs\w*)\s*!=\s*null\s*\)\s*\{', code):
             rest = code[m.end():]
             depth = 1
             block_end = len(rest)
@@ -849,7 +1055,7 @@ class DaoTransformer:
             block_content = rest[:block_end]
             if not re.search(r'for\s*\(\s*Map<String,\s*Object>', block_content):
                 continue
-            lv = nearest_list_var(code, m.start())
+            lv = lookup_list_var(code, m.start(), m.group(1))
             parts.append(code[last:m.start()])
             parts.append(f'if ({lv} != null && !{lv}.isEmpty()) {{')
             last = m.end()
@@ -954,6 +1160,9 @@ class DaoTransformer:
 
         # 10. && → and, || → or
         cond = cond.replace('&&', 'and').replace('||', 'or')
+
+        # 11. 남은 큰따옴표 문자열 리터럴 → 작은따옴표 (MyBatis <if test="..."> 속성 충돌 방지)
+        cond = re.sub(r'"([^"]*)"', r"'\1'", cond)
 
         return cond.strip()
 
@@ -1161,6 +1370,24 @@ class DaoTransformer:
             frag_sql.append(f'/* {arg} */')
         return frag_sql, frag_pairs
 
+    @staticmethod
+    def _detect_sql_type(sql: str) -> str:
+        """SQL 첫 키워드로 select/insert/update/delete 분류 (MERGE 는 update)."""
+        head = re.sub(r'/\*.*?\*/', '', sql, flags=re.S).strip().upper()
+        head = re.sub(r'<[^>]+>', '', head).strip()
+        if re.match(r'^INSERT\b', head):
+            return 'insert'
+        if re.match(r'^DELETE\b', head):
+            return 'delete'
+        if re.match(r'^(UPDATE|MERGE)\b', head):
+            return 'update'
+        return 'select'
+
+    @staticmethod
+    def _java_call_for_type(sql_type: str) -> str:
+        """xml_entries type → uxbDAO 메서드명 매핑."""
+        return sql_type if sql_type in ('insert', 'update', 'delete') else 'select'
+
     def _extract_sql_and_params(self, code: str, sb_var: str) -> tuple[list[str], list[tuple[str, str]]]:
         """sb.append() 호출에서 SQL 조각과 (key, value) 파라미터 쌍 목록을 추출.
         if (cond) { sb.append(...) } 패턴은 <if test="..."> MyBatis 태그로 변환.
@@ -1172,8 +1399,21 @@ class DaoTransformer:
         sb_decl_re = re.compile(
             rf'(?:(?:StringBuilder|StringBuffer)\s+)?{re.escape(sb_var)}\s*=\s*new\s+(?:StringBuffer|StringBuilder)\s*\('
         )
+        # `tempQuery = new StringBuffer(tempQuery.toString().replaceAll(...))` 같은
+        # self-reference 재할당은 *초기화* 가 아닌 *후처리* 이므로 last_decl_pos 후보에서 제외.
+        # 동시에 replaceAll("TOKEN", var) 매핑은 placeholder_map 에 저장해 SQL 의 토큰을 ${var} 로 치환.
         last_decl_pos = 0
+        placeholder_map: dict[str, str] = {}
         for m in sb_decl_re.finditer(code):
+            stmt_end = code.find(';', m.end())
+            stmt_arg = code[m.end():stmt_end] if stmt_end != -1 else code[m.end():]
+            if f'{sb_var}.toString()' in stmt_arg:
+                # replaceAll("PLACEHOLDER", varName) → ${varName} 치환 룰 등록
+                for rm in re.finditer(
+                    r'\.replaceAll\(\s*"([^"]+)"\s*,\s*(\w+)\s*\)', stmt_arg
+                ):
+                    placeholder_map[rm.group(1)] = rm.group(2)
+                continue
             last_decl_pos = m.start()
 
         # 순수 문자열 리터럴로 초기화된 경우
@@ -1220,6 +1460,12 @@ class DaoTransformer:
         choose_skip_pos: set[int] = set()
 
         for ie_m in if_else_re.finditer(code, last_decl_pos):
+            # WHEN/OTHERWISE 본문에 brace 나 중첩 append 가 있으면 경계 잘못 잡힌 매치 (별도 if 블록 가로지름)
+            a_body, b_body = ie_m.group(2), ie_m.group(3)
+            if any(ch in a_body for ch in '{}') or f'{sb_var}.append' in a_body:
+                continue
+            if any(ch in b_body for ch in '{}') or f'{sb_var}.append' in b_body:
+                continue
             cond = self._java_condition_to_mybatis(ie_m.group(1).strip())
             when_m = append_re.search(code, ie_m.start(), ie_m.end())
             if not when_m:
@@ -1414,17 +1660,26 @@ class DaoTransformer:
             if var not in seen:
                 seen[var] = var
 
+        # placeholder token(예: #FIELD) → MyBatis 식별자 바인딩(${var}) 치환
+        if placeholder_map:
+            new_parts = []
+            for p in sql_parts:
+                for ph, var in placeholder_map.items():
+                    p = p.replace(ph, f'${{{var}}}')
+                new_parts.append(p)
+            sql_parts = new_parts
+
         return sql_parts, list(seen.items())
 
     def _extract_update_params(self, code: str, start: int) -> list[tuple[str, str]]:
         """ps.setXxx / pstmt.setXxx(pos, expr) 에서 순서대로 (key, value_expr) 쌍을 추출.
-        pos는 숫자, i++ 또는 ++i 형태 모두 지원.
+        pos는 숫자, var++ / ++var 형태(임의 변수명) 모두 지원.
         """
         exec_m = re.search(r'\bexecute(?:Update|Query)\(\)', code[start:])
         end = start + exec_m.start() if exec_m else start + 500
 
         set_line_re = re.compile(
-            r'\bps\w*\.set(?:Long|String|Int|Double|Timestamp|Object)\s*\(\s*(\+\+i|\d+|i\+\+)\s*,\s*([^\n]+)\)',
+            r'\bps\w*\.set(?:Long|String|Int|Double|Timestamp|Object)\s*\(\s*(\+\+\w+|\w+\+\+|\d+)\s*,\s*([^\n]+)\)',
         )
         fixed: dict[int, tuple[str, str]] = {}
         ordered: list[tuple[str, str]] = []
@@ -1439,7 +1694,7 @@ class DaoTransformer:
             kv = self._derive_param_key_value(expr)
             if kv is None:
                 continue
-            if pos_str in ('i++', '++i'):
+            if pos_str.endswith('++') or pos_str.startswith('++'):
                 ordered.append(kv)
             else:
                 pos = int(pos_str)
@@ -1679,15 +1934,83 @@ class DaoTransformer:
         return code
 
     def _remove_throws_exception(self, code: str) -> str:
-        """메서드 시그니처의 throws Exception / RemoteException 제거."""
-        # RemoteException 제거 (throws 목록에서 trailing/leading/standalone)
-        code = re.sub(r',\s*\bRemoteException\b', '', code)
-        code = re.sub(r'\bRemoteException\b\s*,\s*', '', code)
-        code = re.sub(r'\bthrows\s+RemoteException\b', '', code)
-        # throws Exception[, 나머지예외들] 제거 (Exception 포함 시 throws 절 전체 제거)
-        code = re.sub(r'\)\s*throws\s+Exception\b[^{;]*(?=\s*[\{;])', ')', code)
-        # 잔여 단독 throws 절 제거 (Exception 이 이미 제거된 후 남은 , OtherException 등)
-        code = re.sub(r'\)\s*,\s*\w+Exception\b', ')', code)
+        """메서드 시그니처의 불필요한 throws 절 정리.
+
+        - RemoteException: 무조건 제거
+        - UxbBizException, Exception: 본문에 `throw` 문이 없을 때만 제거 (없으면 불필요)
+        - 다른 예외(IOException 등)는 그대로 유지
+        - throws 목록이 비면 'throws' 키워드도 함께 제거
+        """
+        REMOVE_ALWAYS = {'RemoteException', 'SQLException'}
+        REMOVE_IF_NO_THROW = {'UxbBizException', 'Exception'}
+
+        sig_re = re.compile(r'(\)\s*)throws\s+([\w\s,\.]+?)(\s*\{)')
+
+        pieces: list[str] = []
+        last_end = 0
+
+        for m in sig_re.finditer(code):
+            body_open = code.find('{', m.start(3))
+            if body_open == -1:
+                continue
+            body_close = self._find_block_end(code, body_open)
+            if body_close >= len(code):
+                continue
+
+            body = code[body_open + 1:body_close]
+            has_throw_stmt = bool(re.search(r'\bthrow\s+', body))
+
+            names = [n.strip() for n in m.group(2).split(',') if n.strip()]
+
+            kept: list[str] = []
+            for n in names:
+                simple = n.rsplit('.', 1)[-1]
+                if simple in REMOVE_ALWAYS:
+                    continue
+                if simple in REMOVE_IF_NO_THROW and not has_throw_stmt:
+                    continue
+                kept.append(n)
+
+            if len(kept) == len(names):
+                continue
+
+            if kept:
+                replacement = m.group(1) + 'throws ' + ', '.join(kept) + m.group(3)
+            else:
+                # throws 절 전체 제거 → ') {' 형태로 정규화
+                replacement = ') {'
+
+            pieces.append(code[last_end:m.start()])
+            pieces.append(replacement)
+            last_end = m.end()
+
+        pieces.append(code[last_end:])
+        return ''.join(pieces)
+
+    def _remove_unused_imports(self, code: str) -> str:
+        """미사용 import 자동 정리.
+
+        - `import x.y.Z;` 형태에서 simple name `Z` 를 추출
+        - 코드 본문(import 제외)에 `\\bZ\\b` 매치가 없으면 해당 import 제거
+        - wildcard import (`import x.y.*;`) 는 유지
+        """
+        import_re = re.compile(
+            r'^(import\s+(?:static\s+)?[\w.]+\.(\w+)\s*;\s*\n?)',
+            re.MULTILINE,
+        )
+        imports = list(import_re.finditer(code))
+        if not imports:
+            return code
+        body_no_imports = import_re.sub('', code)
+        to_remove: list[tuple[int, int]] = []
+        for m in imports:
+            class_name = m.group(2)
+            if class_name == '*':
+                continue
+            if not re.search(rf'\b{re.escape(class_name)}\b', body_no_imports):
+                to_remove.append((m.start(), m.end()))
+        for start, end in reversed(to_remove):
+            code = code[:start] + code[end:]
         return code
 
     def _cleanup_formatting(self, code: str) -> str:
@@ -1780,9 +2103,13 @@ class DaoTransformer:
             )
         blocks = []
         for e in entries:
-            is_update = e.get('type') == 'update'
-            tag = 'update' if is_update else 'select'
-            extra = '' if is_update else ' resultType="map" useCache="false"'
+            sql_type = e.get('type', 'select')
+            if sql_type in ('update', 'insert', 'delete'):
+                tag = sql_type
+                extra = ''
+            else:
+                tag = 'select'
+                extra = ' resultType="map" useCache="false"'
             formatted_sql = self._format_sql(e["sql"])
             blocks.append(
                 f'    <{tag} id="{e["id"]}" parameterType="map"{extra} timeout="0">\n'
@@ -1893,32 +2220,34 @@ class EjbConverter:
                         converted.append(out_xml)
                         logger.info(f'완료 (Mapper XML): {out_xml}')
 
-                    if EXTERNAL_DAO_BASE and sub is not None:
-                        ext_java = EXTERNAL_DAO_BASE / sub / java_file.name
-                        ext_java.parent.mkdir(parents=True, exist_ok=True)
-                        if _safe_write(ext_java, java_code):
-                            converted.append(ext_java)
-                            logger.info(f'완료 (외부 Java): {ext_java}')
+                    if EXTERNAL_GEN_YN:
+                        if EXTERNAL_DAO_BASE and sub is not None:
+                            ext_java = EXTERNAL_DAO_BASE / sub / java_file.name
+                            ext_java.parent.mkdir(parents=True, exist_ok=True)
+                            if _safe_write(ext_java, java_code):
+                                converted.append(ext_java)
+                                logger.info(f'완료 (외부 Java): {ext_java}')
 
-                    if EXTERNAL_MAPPER_BASE and sub is not None:
-                        ext_xml = EXTERNAL_MAPPER_BASE / sub / mapper_name
-                        ext_xml.parent.mkdir(parents=True, exist_ok=True)
-                        if _safe_write(ext_xml, xml_code):
-                            converted.append(ext_xml)
-                            logger.info(f'완료 (외부 Mapper XML): {ext_xml}')
+                        if EXTERNAL_MAPPER_BASE and sub is not None:
+                            ext_xml = EXTERNAL_MAPPER_BASE / sub / mapper_name
+                            ext_xml.parent.mkdir(parents=True, exist_ok=True)
+                            if _safe_write(ext_xml, xml_code):
+                                converted.append(ext_xml)
+                                logger.info(f'완료 (외부 Mapper XML): {ext_xml}')
                 else:
                     out_path = OUTPUT_DIR / java_file.name
                     if _safe_write(out_path, result):
                         converted.append(out_path)
                         logger.info(f'완료: {out_path}')
 
-                    sub = self._sub_path_after_dao(result)
-                    if EXTERNAL_DAO_BASE and sub is not None:
-                        ext_java = EXTERNAL_DAO_BASE / sub / java_file.name
-                        ext_java.parent.mkdir(parents=True, exist_ok=True)
-                        if _safe_write(ext_java, result):
-                            converted.append(ext_java)
-                            logger.info(f'완료 (외부 Java): {ext_java}')
+                    if EXTERNAL_GEN_YN:    
+                        sub = self._sub_path_after_dao(result)
+                        if EXTERNAL_DAO_BASE and sub is not None:
+                            ext_java = EXTERNAL_DAO_BASE / sub / java_file.name
+                            ext_java.parent.mkdir(parents=True, exist_ok=True)
+                            if _safe_write(ext_java, result):
+                                converted.append(ext_java)
+                                logger.info(f'완료 (외부 Java): {ext_java}')
 
             except Exception as e:
                 logger.error(f'실패 ({java_file.name}): {e}')
