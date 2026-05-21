@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
-DEFAULT_VALIDATE_DIR = Path(os.getenv("VALIDATE_DIR", "convert/converter/output"))
+DEFAULT_VALIDATE_DIR = Path(os.getenv("VALIDATE_DIR", "converter/dao/output"))
 
 LEVEL_ERROR = "ERROR"
 LEVEL_WARN = "WARN"

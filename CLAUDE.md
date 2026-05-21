@@ -28,9 +28,9 @@ java_converter_with_claude/
 ├── .env.example                # 환경변수 템플릿
 ├── .env                        # 실제 환경변수 (git 제외)
 │
-├── convert/                    # 변환 관련 전체 모듈
+├── converter/                  # 변환 관련 전체 모듈
 │   ├── convertList.py          # 변환 대상 DAO 파일 추출 (Freezing Source vs Git 비교)
-│   └── converter/              # 핵심 변환 로직 (Python 패키지)
+│   └── dao/                    # DAO 변환 핵심 로직 (Python 패키지)
 │       ├── __init__.py
 │       ├── convert.py          # CLI 진입점 (convert / validate / patterns 명령)
 │       ├── converter.py        # 변환 실행기 (API 없음, 코드 규칙 기반)
@@ -54,23 +54,23 @@ java_converter_with_claude/
 
 ```
 1. 샘플 준비
-   convert/converter/samples/as_is/  ← AS-IS EJB 파일 배치
-   convert/converter/samples/to_be/  ← TO-BE Spring 파일 배치 (같은 파일명)
+   converter/dao/samples/as_is/  ← AS-IS EJB 파일 배치
+   converter/dao/samples/to_be/  ← TO-BE Spring 파일 배치 (같은 파일명)
                                         DAO 파일이면 XxxMapper.xml 도 함께 배치
 
 2. 패턴 학습 (Claude API 호출 — 샘플 추가 시에만 실행)
-   python -m convert.converter.convert learn
+   python -m converter.dao.convert learn
 
 3. 변환 실행 (API 호출 없음)
-   convert/converter/input/ ← 변환할 EJB 파일 배치
-   python -m convert.converter.convert convert
+   converter/dao/input/ ← 변환할 EJB 파일 배치
+   python -m converter.dao.convert convert
 
 4. 결과 확인
-   convert/converter/output/ ← 변환된 Java + Mapper XML 파일 확인
+   converter/dao/output/ ← 변환된 Java + Mapper XML 파일 확인
 
 5. 변환 파일 검증
-   convert/converter/validate/ ← 가공한 파일 배치
-   python -m convert.converter.convert validate
+   converter/dao/validate/ ← 가공한 파일 배치
+   python -m converter.dao.convert validate
 ```
 
 ---
@@ -146,7 +146,7 @@ cp .env.example .env
 ### Claude API 사용 원칙
 - `analyzer.py` 전용 — 샘플에서 치환 규칙을 추출할 때만 호출
 - 출력 형식: 코드가 직접 실행 가능한 `import_replacements` / `annotation_replacements` / `text_replacements` JSON
-- 변환 규칙이 바뀌면 샘플을 추가하고 `python -m convert.converter.convert learn --relearn` 재실행
+- 변환 규칙이 바뀌면 샘플을 추가하고 `python -m converter.dao.convert learn --relearn` 재실행
 - `converter.py` 는 API를 **호출하지 않음** — 저장된 패턴 JSON + 내장 규칙만 사용
 
 ### 코드 스타일
@@ -163,7 +163,7 @@ cp .env.example .env
 DAO 파일인 경우 `to_be/` 에 Mapper XML도 함께 배치한다.
 
 ```
-convert/converter/samples/
+converter/dao/samples/
   as_is/
     UserService.java          # EJB 원본
     OTCSADetailDAO.java       # EJB DAO 원본

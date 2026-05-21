@@ -82,14 +82,14 @@ Claude Code 도 처음 사용해보면서 익숙해지는 것도 목표다.
 pip install -r requirements.txt
 
 # 변환 실행
-# convert/converter/input/ 폴더에 변환할 .java 파일을 넣은 후 실행
-python -m convert.converter.convert convert
+# converter/dao/input/ 폴더에 변환할 .java 파일을 넣은 후 실행
+python -m converter.dao.convert convert
 
 # 패턴 파일 확인
-python -m convert.converter.convert patterns
+python -m converter.dao.convert patterns
 ```
 
-> 결과 파일은 `convert/converter/output/` 폴더에 생성됩니다.
+> 결과 파일은 `converter/dao/output/` 폴더에 생성됩니다.
 > DAO 파일은 `XxxDAO.java` + `XxxMapper.xml` 두 파일이 함께 생성됩니다.
 
 ---
@@ -161,7 +161,7 @@ python -m convert.converter.convert patterns
 IDE(VS Code 등)에서 열어 **`Ctrl + F5`** 로 실행하거나, 명령어로 직접 실행:
 
 ```bash
-python convert/convertList.py
+python converter/convertList.py
 ```
 
 > 실행 전 스크립트 상단의 `PATH_SOM`, `PATH_COMMON`, `PATH_GIT` 경로를 환경에 맞게 수정해야 합니다.
@@ -199,14 +199,14 @@ Claude API 호출 없이 정적 분석만으로 동작합니다.
 ### 실행 방법
 
 ```bash
-# 기본 (convert/converter/validate/ 폴더 검증)
-python -m convert.converter.convert validate
+# 기본 (converter/dao/validate/ 폴더 검증)
+python -m converter.dao.convert validate
 
 # 검증 폴더 지정
-python -m convert.converter.convert validate --dir convert/converter/output
+python -m converter.dao.convert validate --dir converter/dao/output
 
 # 결과 보고서 파일로 저장
-python -m convert.converter.convert validate --dir convert/converter/output --report convert/converter/output/_validate_report.txt
+python -m converter.dao.convert validate --dir converter/dao/output --report converter/dao/output/_validate_report.txt
 ```
 
 `.env` 에 `VALIDATE_DIR=...` 를 두면 `--dir` 생략 가능.

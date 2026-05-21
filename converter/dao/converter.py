@@ -21,9 +21,9 @@ def _env_path_optional(key: str) -> Path | None:
     return Path(val) if val else None
 
 
-INPUT_DIR = _env_path("INPUT_DIR", "convert/converter/input")
-OUTPUT_DIR = _env_path("OUTPUT_DIR", "convert/converter/output")
-PATTERNS_FILE = _env_path("PATTERNS_FILE", "convert/converter/patterns/learned_patterns.json")
+INPUT_DIR = _env_path("INPUT_DIR", "converter/dao/input")
+OUTPUT_DIR = _env_path("OUTPUT_DIR", "converter/dao/output")
+PATTERNS_FILE = _env_path("PATTERNS_FILE", "converter/dao/patterns/learned_patterns.json")
 
 # Panocean Git 프로젝트 경로 (output 파일 생성 시 프로젝트 폴더에도 같이 생성)
 EXTERNAL_GEN_YN = True  # output 파일을 외부 프로젝트에도 생성할지 여부;
